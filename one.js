@@ -107,7 +107,7 @@ function getUserMedia(dictionary, callback) {
         } else {
           // default mac microphone input
           navigator.getUserMedia(
-            {audio: {deviceId: devices[1].deviceId} }, callback, error);
+            {audio: {deviceId: devices[0].deviceId} }, callback, error);
         }
       });
 
