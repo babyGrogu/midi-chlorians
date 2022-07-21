@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+	<head>
+		<title>Pitch Detector & Konva</title>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.26.0/babel.min.js"></script>
+    <script src="konva8310.min.js"></script>
+
+		<script src="one.js"></script>
+		<script src="onek.js"></script>
+    <script type="text/babel" src="oner.js"></script>
+  
+  <!--<script type="text/babel" src="bkp/eitr.js"></script>-->
+
+    <style>
+			#note { font-size: 46px; }
+			#lastPlayed { font-size: 23px; }
+    </style>
+	</head>
+	<body>
+    <div><span id="pitch">--</span>Hz</div>
+    <div><span id="note">--</span></div>   
+    <div id="detune"><span id="detune_amt">--</span><span id="flat">cents &#9837;</span><span id="sharp">cents &#9839;</span></div>
+    <div><span id="lastPlayed"></span></div>   
+    <div id="reactRoot"></div>
+    <div id="konvaRoot"></div>
+    <div>
+     <ul>
+       <li> staff is a bass clef (not a treble clef)
+       <li> notes played are from the C Major scale
+       <li> if desired choose a range of notes to be shown
+       <li> press start listening to activate microphone and accept any popups
+       <li> play the notes before they reach the center green target zone, or notes will pause until left most note is played
+       <li> use 'Slower' or 'Faster' to adujst the speed of the notes moving
+     </ul>
+    </div>
+	</body>
+<html>
