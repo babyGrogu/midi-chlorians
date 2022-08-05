@@ -6,145 +6,191 @@ const { createRoot } = ReactDOM;
 const CMD_SET_INPUT = 'SET_INPUT'
 const CMD_SET_INST = 'SET_INST'
 const CMD_SET_KEY = 'SET_KEY'
+const CMD_SET_SLOWER = 'SET_SLOWER';
+const CMD_SET_FASTER = 'SET_FASTER';
 const CMD_RANGE_LOW = 'RANGE_LOW';
 const CMD_RANGE_HIGH = 'RANGE_HIGH';
 
 let initialControls = {
   input: selectInput,
   instrument: INST_BASS4,
-  keyRoot: 'C',
+  key,
   rangeLow: selectRangeLow,  // value of perfect note's  .i for BASS4
   rangeHigh: selectRangeHigh, // value of perfect note's  .i for BASS4
+  velocity: animationVelocity
 };
 
-let notesPerfectInKeyForInst = [];
+let notesPerfectLowHighRange = [];
 
-populateNotesForKeyAndInstrument(initialControls);
-populateLowHighRangeGivenInstAndKey(initialControls);
+calculateLowHighRange(initialControls);
+calculateNotesForKey(initialControls);
 
-function populateNotesForKeyAndInstrument(state) {
+function calculateNotesForKey(state) {
   // figure out what notes are in the user specifed key
   notesInKey = [];
-  for (let i = notes.indexOf(state.keyRoot), j = 0;
+  for (let i = notes.indexOf(state.key.root), j = 0;
        j < keySteps.length;
        i = (i + keySteps[j]) % notes.length, j++) {
     const noteInKey = notes[i];
     notesInKey.push(noteInKey);
   }
 
-  // filter notes based on instrument
-  let notesPerfectInst = notesPerfect.slice(
-      instruments[state.instrument].rangePerfects[0],
-      instruments[state.instrument].rangePerfects[1]+1
-  );
-
-  // for this instrument find the notes in key
-  notesPerfectInKeyForInst.length = 0;
-  notesPerfectInst.forEach(n => {
+  // for this key find the notes in range
+  notesPerfectInKeyForRange.length = 0;
+  notesPerfectLowHighRange.forEach(n => {
     if (notesInKey.indexOf(n.n) > -1) {
-      notesPerfectInKeyForInst.push(n);
+      notesPerfectInKeyForRange.push(n);
     }
   });
 }
 
-function populateLowHighRangeGivenInstAndKey(state) {
-    notesPerfectInKeyForInstAndRange = [...notesPerfectInKeyForInst];
+// range can be affected by range selectors mainly
+// other selectors that could be used could set ranges could be for instruments
+// other selectors that could be used could set ranges could be for instrument frets
+// keys should not effect range
+function calculateLowHighRange(state) {
+    // clone
+    notesPerfectLowHighRange = [...notesPerfect];
+
     // find rangeLow's corresponding perfect note using .i
-    const li = notesPerfectInKeyForInstAndRange.findIndex(
-      n => n.i === state.rangeLow);
-    const hi = notesPerfectInKeyForInstAndRange.findIndex(
-      n => n.i === state.rangeHigh);
-    notesPerfectInKeyForInstAndRange =
-      notesPerfectInKeyForInstAndRange.slice(li, hi+1); 
-
-    /*
-    let rangeLow, rangeHigh;
-    if (state.instrument === INST_BASS4) {
-      numberOfNotesInRange = 12;
-    } else if (state.instrument === INST_BASS5) {
-      numberOfNotesInRange = 15;
-    } else if (state.instrument === INST_BASS6) {
-      numberOfNotesInRange = 18;
-    }
-
-  
-    rangeLow = notesPerfectInKeyForInst[0].i;
-    rangeHigh = notesPerfectInKeyForInst[numberOfNotesInRange].i;
-    return {...state, rangeLow, rangeHigh};
-    */
+    const li = notesPerfectLowHighRange.findIndex(n => n.i === state.rangeLow);
+    const hi = notesPerfectLowHighRange.findIndex(n => n.i === state.rangeHigh);
+    notesPerfectLowHighRange = notesPerfectLowHighRange.slice(li, hi+1); 
 }
 
+const animateSpeed = (m) => animationVelocity = Math.round(animationVelocity * m);
+
 function controlsReducer(state, action) {
+  let newState = {};
   switch(action.command) {
     case (CMD_SET_KEY):
-      state = {...state, keyRoot: action.key};
-      populateNotesForKeyAndInstrument(state);
-      populateLowHighRangeGivenInstAndKey(state);
-      //state = populateLowHighRangeGivenInstAndKey(state);
+      state = {...state, key: keys[parseInt(action.key,10)]};
+      calculateNotesForKey(state);
+      key = state.key; // todo: when we get konva into react this line should go away
+      renderLowestKeyNotes();
+      action.target.blur(); // remove focus from select widget so typing notes does not change the selection
       return state;
     case (CMD_RANGE_LOW):
-      const newStateL = {...state, rangeLow: action.low};
-      populateLowHighRangeGivenInstAndKey(newStateL);
-      return newStateL;
+      newState = {...state, rangeLow: action.low};
+      calculateLowHighRange(newState);
+      return newState;
     case (CMD_RANGE_HIGH):
-      const newState = {...state, rangeHigh: action.high};
-      populateLowHighRangeGivenInstAndKey(newState);
+      newState = {...state, rangeHigh: action.high};
+      calculateLowHighRange(newState);
       return newState;
     case (CMD_SET_INST):
-      state = {...state, instrument: action.inst};
-      populateNotesForKeyAndInstrument(state);
-      populateLowHighRangeGivenInstAndKey(state);
-      //state = populateLowHighRangeGivenInstAndKey(state);
+      // todo:
       return state;
     case (CMD_SET_INPUT):
       return {...state, input: action.input};
+    case (CMD_SET_SLOWER):
+      animateSpeed(0.95);
+      return {...state, velocity: animationVelocity};
+    case (CMD_SET_FASTER):
+      animateSpeed(1.05);
+      return {...state, velocity: animationVelocity};
   }
   return state;
 }
 
-
 const Controls = (props) => {
-
   const [controlData, dispatch] = useReducer(controlsReducer, initialControls);
-
   selectInput = controlData.input;
   selectRangeLow = controlData.rangeLow;
   selectRangeHigh = controlData.rangeHigh;
 
-  function renderNotesForRangeSelection() {
-    let sharp = false;
-    if (['C','D','E','G','A','B'].indexOf(controlData.keyRoot) > -1) {
-      sharp = true;
+  function noteLabelForRange(str) {
+    function sp(s, ss, i) {
+      return (s.indexOf(ss) > -1) ? s.split(ss)[i]: str;
     }
-    return notesPerfectInKeyForInst.map(n => {
-      let label;
-      if (n.n.indexOf('/') > -1) {
-        label = sharp ? n.n.slice(3,5) : n.n.slice(0,2);
+    if (key.i === 0 ||
+        key.i === 1 ||
+        key.i === 2 ||
+        key.i === 3 ||
+        key.i === 4 ||
+        key.i === 5 ||
+        key.i === 6 ||
+        key.i === 7) {
+      str = sp(str, '=', 0);
+      str = sp(str, '/', 1);
+    }
+    else if (key.i === 8 ||
+             key.i === 9 ||
+             key.i === 10 ||
+             key.i === 11 ||
+             key.i === 12 ||
+             key.i === 13 ||
+             key.i === 14) {
+      str = sp(str, '=', 0);
+      str = sp(str, '/', 0);
+    }
+    return str;
+  }
+  function noteLabelForKey(str) {
+    function sp(s, ss, i) {
+      return (s.indexOf(ss) > -1) ? s.split(ss)[i]: str;
+    }
+    // rewrite this using the logic in onek.js getStaffLine
+    if (key.i === 0 ||
+        key.i === 1 ||
+        key.i === 2 ||
+        key.i === 3 ||
+        key.i === 4 ||
+        key.i === 5 ) {
+      str = sp(str, '=', 0);
+      str = sp(str, '/', 1);
+    } else if ( // handle enharmonic special cases
+        key.i === 6 ||    //F#
+        key.i === 7 ) {    //C#
+      if (str === notes[11]) {
+        str = sp(str, '=', 0);     // in key C# note C=B# is called B#
       } else {
-        label = n.n;
+        str = sp(str, '=', 1);     // in key F# note F=E# is called E#
       }
-      return (
-        <option key={n.i} value={n.i} label={label + ' ' + n.l} />
-      )
+      str = sp(str, '/', 1);
+    }
+    else if (key.i === 8 ||
+             key.i === 9 ||
+             key.i === 10 ||
+             key.i === 11 ||
+             key.i === 12) {
+      str = sp(str, '=', 0);
+      str = sp(str, '/', 0);
+    } else if ( // handle enharmonic special cases
+             key.i === 13 ||
+             key.i === 14) {
+      if (str === notes[11] /*for Gb*/ || str === notes[4] /*for Cb*/) {
+        str = sp(str, '=', 1);
+      } else {
+        str = sp(str, '=', 0);
+      }
+      str = sp(str, '/', 0);
+    }
+    return str;
+  }
+  function renderNotesForRangeSelection() {
+    return notesPerfectLowHighRange.map(n => {
+      return (<option key={n.i} value={n.i}>{noteLabelForRange(n.n) + ' ' + n.l}</option>);
     });
   }
-
-  function renderNotesForKeySelection() {
-    return notes.map(n => (
-      <option key={n} value={n} label={n} />
+  function renderKeysForKeySelection() {
+    return keys.map((k,i) => (
+      <option key={i} value={i} label={k.label} />
     ));
   }
-
+  function renderNotesForKey() {
+    return notesInKey.map((n,i) => ( <span key={i}>{noteLabelForKey(n)} </span> ));
+  }
   function listenR() {
     audioContext = new AudioContext();
     startAudioProcessing();
+    startKeyBoardListening();
     eightIsGreate();
   }
 
   return (
     <div>
 
-      {/*
       <div>
         <select id="selectInput" onChange={e =>
             dispatch({
@@ -157,53 +203,10 @@ const Controls = (props) => {
         </select>
         <span> input</span>
       </div>
-      */}
 
       <div>
         <button onClick={listenR}>start listening</button>
       </div>
-
-      {/*
-      <div>
-        <select id="selectInst" value={controlData.instrument}
-          onChange={e => 
-            dispatch({
-              command: CMD_SET_INST,
-              inst: e.currentTarget.value
-            })
-          }
-        >
-        {
-          Object.keys(instruments).map(inst => (
-            <option key={inst} value={inst} label={instruments[inst].text} />
-          ))
-        }</select>
-        <span> instrument </span>
-      </div>
-
-      <div>
-        <select id="selectRoot" value={controlData.keyRoot}
-          onChange={e =>
-            dispatch({
-              command: CMD_SET_KEY,
-              key: e.currentTarget.value
-            })
-          }
-        >{ renderNotesForKeySelection() }</select>
-       <span> key root </span>
-      </div>
-      */}
-
-      {/*
-      <div>
-        <select id="selectScale">
-          <option value="maj">major</option>
-          <option value="min">minor</option>
-          <option value="chr">chromatic</option>
-        </select>
-        scale
-      </div>
-      */}
 
       <div>
         <select id="selectLow" value={controlData.rangeLow}
@@ -230,10 +233,44 @@ const Controls = (props) => {
         <span> highest note </span>
       </div>
 
+      {/*
       <div>
-        <button id="slower" onClick={() => animateSlower()}>Slower</button>
-        <button id="faster" onClick={() => animateFaster()}>Faster</button>
-        <span> speed</span>
+        <select id="selectInst" value={controlData.instrument}
+          onChange={e => 
+            dispatch({
+              command: CMD_SET_INST,
+              inst: e.currentTarget.value
+            })
+          }
+        >
+        {
+          Object.keys(instruments).map(inst => (
+            <option key={inst} value={inst} label={instruments[inst].text} />
+          ))
+        }</select>
+        <span> instrument </span>
+      </div>
+      */}
+
+      <div>
+        <select id="selectRoot"
+          value={keys.findIndex(k => k.label === controlData.key.label)}
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_KEY,
+              key: e.currentTarget.value,
+              target: e.currentTarget
+            })
+          }
+        >{ renderKeysForKeySelection() }</select>
+       <span> key: scale notes</span>
+       <span> { renderNotesForKey() }</span>
+      </div>
+
+      <div>
+        <button id="slower" onClick={() => dispatch({command: CMD_SET_SLOWER})}>Slower</button>
+        <button id="faster" onClick={() => dispatch({command: CMD_SET_FASTER})}>Faster</button>
+        <span> speed {controlData.velocity}</span>
       </div>
 
     </div>
