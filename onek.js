@@ -284,7 +284,8 @@ function createAndCacheElements() {
 function renderNote(note) {
   // get noteIndex to staff line mapping given the instrument, and key
   let noteK;
-  let staffLine = getStaffLine(note.i);
+  let staffLine = getStaffLine(note);
+  //console.log('staffLine for note: ' + note.n + '=' + staffLine);
   switch(true) {
     case (staffLine === 0):
       noteK = quarterNoteFlippedG;
@@ -368,6 +369,18 @@ function findLeftMostNoteToPlay() {
 }
 
 function notePlayedCorrectly() {
+  destroyLeftMostNote();
+  eightIsGreate();
+}
+
+function destroyAllNotes() {
+  const numNotes = getNumberOfNotes();
+  for (let i=0; i< numNotes; i++) {
+    destroyLeftMostNote();
+  }
+}
+
+function destroyLeftMostNote() {
   const c = roll.getChildren();
   if (c && c.length) {
     if (c[0].getType() === 'Shape') {
@@ -380,11 +393,9 @@ function notePlayedCorrectly() {
       c[0].destroy();
     }
   }
-  eightIsGreate();
 }
 
-function eightIsGreate() {
-  // see if notes are less than 8 if so create one
+function getNumberOfNotes() {
   const c = roll.getChildren();
   let noteCtr = 0;
   if (c && c.length) {
@@ -394,80 +405,99 @@ function eightIsGreate() {
       }
     });
   }
-  for (let i=noteCtr; i < 8; i++) {
-    chooseNote();
+  return noteCtr;
+}
 
+function renderLowestKeyNotes() {
+  //console.log('   --  test start   --');
+  destroyAllNotes();
+  const firstNoteOfKeyIndex =  notesPerfectInKeyForRange.findIndex(n => n.n === key.root);
+
+  const testNotes = notesPerfectInKeyForRange.slice(firstNoteOfKeyIndex,firstNoteOfKeyIndex+8);
+  testNotes.forEach(n => {
+    renderNote(n);
+  });
+  if (! animateRoll.isRunning()) {
+    animateRoll.start();
+  }
+  //console.log('   --  test done   --');
+}
+
+function eightIsGreate() {
+  // if fewer than 8 notes, create another one
+  for (let i=getNumberOfNotes(); i < 8; i++) {
+    chooseNote();
     if (! animateRoll.isRunning()) {
       animateRoll.start();
     }
   }
 }
 
-// noteIndex relates to values in noteMapPerfects
-// returns staff line based on
-//  clef
-//  root
-//  key
-/*
-  how to do this in general
-    - start loop on notMapPerfects[0]
-      if note is in notesInKey then it needs no decoration and next
-      figure out the staff line
-      if not in notesInKey how to decorate it?
-*/
-function getStaffLine(noteIndex) {
-  if (clef === CLEF_BASS) {
-    // maps noteMapPerfects index to staff line
-    // staff line = 0 is G3 at 12 fret on 4/5 string bass
-    // staff line = 19 is B0 at open string on 5 string bass
+const nlm = {}; // noteLineMap for bass clef
+let octaveLevel = 3;
+const staffLines = 'GFEDCBA'.split('');
+for (let i=0,j=0; i<20; i++,j=(j+1)%7) {
+  const staffLine = staffLines[j];
+  let h = staffLine + '#' + octaveLevel;
+  nlm[h] = i;
+  //console.log('h: ' + h + '=' + i);
 
-    // C major for at first
-    const bassClefNoteMap = [];
-    // value of -1 means no representation on this clef given the
-    // current implementation
-    bassClefNoteMap[34] =  0; //G3
-    bassClefNoteMap[33] = -1;
-    bassClefNoteMap[32] =  1; //F3
-    bassClefNoteMap[31] =  2; //E3
-    bassClefNoteMap[30] = -1;
-    bassClefNoteMap[29] =  3; //D3
-    bassClefNoteMap[28] = -1;
-    bassClefNoteMap[27] =  4; //C3
-    bassClefNoteMap[26] =  5; //B2
-    bassClefNoteMap[25] = -1;
-    bassClefNoteMap[24] =  6; //A2
-    bassClefNoteMap[23] = -1;
-    bassClefNoteMap[22] =  7; //G2
-    bassClefNoteMap[21] = -1;
-    bassClefNoteMap[20] =  8; //F2
-    bassClefNoteMap[19] =  9; //E2
-    bassClefNoteMap[18] = -1;
-    bassClefNoteMap[17] = 10; //D2
-    bassClefNoteMap[16] = -1;
-    bassClefNoteMap[15] = 11; //C2
-    bassClefNoteMap[14] = 12; //B1
-    bassClefNoteMap[13] = -1;
-    bassClefNoteMap[12] = 13; //A1
-    bassClefNoteMap[11] = -1;
-    bassClefNoteMap[10] = 14; //G1
-    bassClefNoteMap[ 9] = -1; //Gb/F#1  ? which line?
-    bassClefNoteMap[ 8] = 15; //F1
-    bassClefNoteMap[ 7] = 16; //E1
-    bassClefNoteMap[ 6] = -1;
-    bassClefNoteMap[ 5] = 17; //D1
-    bassClefNoteMap[ 4] = -1;     //todo: render C#
-    bassClefNoteMap[ 3] = 18; //C1
-    bassClefNoteMap[ 2] = 19; //B1
-    bassClefNoteMap[ 1] = -1;
-    bassClefNoteMap[ 0] = -1;
+  // line order here is important to change the level at B#
+  if (staffLine + '#' === 'B#') { /*console.log('  lower level' );*/ octaveLevel--; }  // good for sharps
 
-    return bassClefNoteMap[noteIndex];
-  }
+  h = staffLine + octaveLevel;
+  nlm[h] = i;
+  //console.log('h: ' + h + '=' + i);
+
+  h = staffLine + 'b' + octaveLevel;
+  nlm[h] = i;
+  //console.log('h: ' + h + '=' + i);
 }
 
-
-const animateFaster = () => animationVelocity = Math.round(animationVelocity * 1.05);
-const animateSlower = () => animationVelocity = Math.round(animationVelocity * 0.95);
+function getStaffLine(note) {
+  // handle special corner cases first
+  if (
+    // in key F# Major or C# Major note F=E# is called E#
+    ((key.i === 6 || key.i === 7) && note.n === notes[5]) ||
+    // in key C# Major note C=B# is called B#
+    (key.i === 7 && note.n === notes[0]) ||
+    // in key Cb Major note E=Fb is called Fb
+    (key.i === 14 && note.n === notes[4])) {
+    return nlm[note.n.slice(2,4) + note.l]; 
+  } else if (
+    // in key Gb Major or Cb Major note B=Cb is called Cb
+    (key.i === 13 || key.i === 14) && note.n === notes[11]) {
+    return nlm[note.n.slice(2,4) + (note.l+1)]; 
+  } else if (
+    note.n === notes[2] || // D
+    note.n === notes[7] || // G
+    note.n === notes[9])   // A
+  {
+    return nlm[note.n + note.l]; 
+  } else if (
+    note.n === notes[0] || // C=B#
+    note.n === notes[4] || // E=Fb
+    note.n === notes[5] || // F=E#
+    note.n === notes[11])  // B=Cb
+  {
+    return nlm[note.n.slice(0,1) + note.l]; 
+  } else if (
+    note.n === notes[1] || // Db/C#
+    note.n === notes[3] || // Eb/D#
+    note.n === notes[6] || // Gb/F#
+    note.n === notes[8] || // Ab/G#
+    note.n === notes[10])  // Bb/A#
+  {
+    if (key.i < 8) {
+      // use sharp name
+      return nlm[note.n.slice(3,5) + note.l]; // this line works for all the sharp keys
+    } else {
+      // use flat name
+      return nlm[note.n.slice(0,2) + note.l]; 
+    }
+  }
+  return 0;
+}
 
 const animateRoll = new Konva.Animation(function (frame) {
 

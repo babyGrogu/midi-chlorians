@@ -11,7 +11,39 @@ var buflen = 2048;
 var buf = new Float32Array( buflen );
 
 
-const notes = ['C', 'Db/C#', 'D', 'Eb/D#', 'E', 'F', 'Gb/F#', 'G', 'Ab/G#', 'A', 'Bb/A#', 'B' ];
+const notes = [
+  'C=B#',   // 0
+  'Db/C#',  // 1
+  'D',      // 2
+  'Eb/D#',  // 3
+  'E=Fb',   // 4
+  'F=E#',   // 5
+  'Gb/F#',  // 6
+  'G',      // 7
+  'Ab/G#',  // 8
+  'A',      // 9
+  'Bb/A#',  // 10
+  'B=Cb'    // 11
+];
+const keys = [   // todo: write a loop that creates this structure?
+  {label: 'C Major', root: notes[0]},   // no sharps or flats
+  {label: 'G Major', root: notes[7]},   // sharps
+  {label: 'D Major', root: notes[2]},
+  {label: 'A Major', root: notes[9]},
+  {label: 'E Major', root: notes[4]},
+  {label: 'B Major', root: notes[11]},
+  {label: 'F# Major', root: notes[6]},
+  {label: 'C# Major', root: notes[1]},
+  {label: 'F Major', root: notes[5]},   // flats
+  {label: 'Bb Major', root: notes[10]},
+  {label: 'Eb Major', root: notes[3]},
+  {label: 'Ab Major', root: notes[8]},
+  {label: 'Db Major', root: notes[1]},
+  {label: 'Gb Major', root: notes[6]},
+  {label: 'Cb Major', root: notes[11]},
+  // todo: add minor keys
+];
+keys.forEach((k,i) => k.i = i);
 
 const CLEF_BASS = 'bass';
 const CLEF_TREBLE = 'treble';
@@ -32,15 +64,15 @@ const searchMiddle = 20;
 let clef = CLEF_BASS;
 let inst = INST_BASS4;
 let keySteps = KEY_MAJOR_HALF_STEPS;
-let root = notes[0]; //c
+let key = keys[0]; // 0 = C major
 let chooseNoteTimer = -1;
 let animationFramesCtr = 0;
 let lastRandomNote = {n:-1}; 
 let notePlayedCorrectlyCnt = 0;
 let pitchElem, noteElem, detuneElem, detuneAmount, lastPlayed;
 let selectInput = 'mic'; 
-let selectRangeLow = 7
-let selectRangeHigh = 27 
+let selectRangeLow = 2; //7;
+let selectRangeHigh = 27; 
 
 let instruments = {
   // using javascript syntax for "computed keys"
@@ -71,7 +103,7 @@ let instruments = {
 };
 
 // arrays of notes
-let notesPerfect, notesInKey, notesPerfectInKeyForInstAndRange=[], notesMinimum, notesLow, notesHigh;
+let notesPerfect, notesInKey, notesPerfectInKeyForRange=[], notesMinimum, notesLow, notesHigh;
 
 
 createMap();
@@ -89,39 +121,44 @@ window.onload = function () {
   initKonva();
 }
 
+function error() {
+    alert('Stream generation failed.');
+}
+
 function getUserMedia(dictionary, callback) {
+    try {
+        navigator.getUserMedia =
+          navigator.getUserMedia ||
+          navigator.webkitGetUserMedia ||
+          navigator.mozGetUserMedia;
+        navigator.getUserMedia(dictionary, callback, error);
+    } catch (e) {
+        alert('getUserMedia threw exception :' + e);
+    }
+}
 
-  function error() {
-      alert('Stream generation failed.');
+function gotStreamWrapper(stream) {
+  if (selectInput === 'mic') {
+    // proceed to the old code
+    gotStream(stream);
+    return;
   }
-
-  try {
-      navigator.mediaDevices.enumerateDevices().then((devices) => {
-        devices = devices.filter((d) => d.kind === 'audioinput');
-        //console.log(devices);
-
-        if (selectInput === 'cable') {
-          //device 2 is the rocksmith or other amazon cable
+  // seems like to use the cable we need to first have the user accept
+  // using the microphone device and only after that we can see the USB cable
+  // among numerateDevices, otherwise we don't see the USB device
+  navigator.mediaDevices.enumerateDevices().then((devices) => {
+    devices.forEach(device => {
+      if (device.label.indexOf('USB Audio') > -1) {
+        try {
           navigator.getUserMedia(
-            {audio: {deviceId: devices[2].deviceId} }, callback, error);
-        } else {
-          // default mac microphone input
-          navigator.getUserMedia(
-            {audio: {deviceId: devices[0].deviceId} }, callback, error);
+            {audio: {deviceId: device.deviceId} }, gotStream, error);
+        } catch (e) {
+            alert('getting cable user media threw exception :' + e);
         }
-      });
-
-      // comment out this section if using the A2D cable
-      /*
-      navigator.getUserMedia = 
-        navigator.getUserMedia ||
-        navigator.webkitGetUserMedia ||
-        navigator.mozGetUserMedia;
-      navigator.getUserMedia(dictionary, callback, error);
-      */
-  } catch (e) {
-      alert('getting audio devices threw exception :' + e);
-  }
+        return;
+      }
+    });
+  });
 }
 
 function gotStream(stream) {
@@ -152,7 +189,7 @@ function startAudioProcessing() {
         },
         "optional": []
     },
-  }, gotStream);
+  }, gotStreamWrapper);
 }
 
 function noteFromPitch( frequency ) {
@@ -346,23 +383,23 @@ function createMap() {
     }
 
     let lastFreq = a4Freq;
-    createNoteRange(['A','C'], 4, true);
-    createNoteRange(['B','C'], 3, true);
-    createNoteRange(['B','C'], 2, true);
-    createNoteRange(['B','C'], 1, true);
-    createNoteRange(['B','A'], 0, true);
+    createNoteRange(['A','C=B#'], 4, true);
+    createNoteRange(['B=Cb','C=B#'], 3, true);
+    createNoteRange(['B=Cb','C=B#'], 2, true);
+    createNoteRange(['B=Cb','C=B#'], 1, true);
+    createNoteRange(['B=Cb','A'], 0, true);
 
     noteMap.reverse();
     lastFreq = a4Freq * HIGHER24;
-    createNoteRange(['Bb/A#','B'], 4, false);
+    createNoteRange(['Bb/A#','B=Cb'], 4, false);
     // either just guitars
-    createNoteRange(['C','E'], 5, false);
+    createNoteRange(['C=B#','E=Fb'], 5, false);
 
     // or piano range is A0=27.50Hz to C8=4186Hz
-    //createNoteRange(['C','B'], 5, false);
-    //createNoteRange(['C','B'], 6, false);
-    //createNoteRange(['C','B'], 7, false);
-    //createNoteRange(['C','C'], 8, false);
+    //createNoteRange(['C=B#','B=Cb'], 5, false);
+    //createNoteRange(['C=B#','B=Cb'], 6, false);
+    //createNoteRange(['C=B#','B=Cb'], 7, false);
+    //createNoteRange(['C=B#','C=B#'], 8, false);
 
     //addNote('X', 'X', lastFreq*HIGHER24, false);
 
@@ -381,22 +418,13 @@ function createMap() {
   notesHigh = notesMinimum.slice(searchMiddle);
 }
 
-// todo: toggle listening?
-function listen() {
-  audioContext = new AudioContext();
-  startAudioProcessing();
-  eightIsGreate();
-}
-
 function chooseNote() {
 
-  // slice inclusively
-  //let keySlice = notesPerfectInKeyForInstAndRange.slice(selectRangeLow, selectRangeHigh+ 1);
   let choosenOne = lastRandomNote;
   // force the next random note be a different note than the previous value
   while (choosenOne.n === lastRandomNote.n) {
-    const rand = Math.floor(Math.random()*(notesPerfectInKeyForInstAndRange.length));
-    choosenOne = notesPerfectInKeyForInstAndRange[rand];
+    const rand = Math.floor(Math.random()*(notesPerfectInKeyForRange.length));
+    choosenOne = notesPerfectInKeyForRange[rand];
   }
   lastRandomNote = choosenOne;
 
@@ -428,34 +456,20 @@ function chooseNote() {
   */
 }
 
+function startKeyBoardListening() {
+  document.addEventListener('keyup', evt => {
+    if (evt.key) {
+      const leftMostNote = findLeftMostNoteToPlay();
+      if (leftMostNote && leftMostNote.n.toLowerCase().indexOf(evt.key) > -1) {
+        lastPlayed.innerHTML = 'Correctly keyed: ' + leftMostNote.n;
+        notePlayedCorrectly();
+      }
+    }
+  });
+}
+
 /**
   todo:
-    - test changing the ranges for only the key of C
-    - put up on github, mark git repo (alpha 0.1)
-    - play for a while, yay!
-    
-    - write little program that loops through notes and lines and prints out
-       where notes go
-   for C                              for G
-    bassClefNoteMap[24] =  6; //A2     bassClefNoteMap[24] =  6; //A2
-    bassClefNoteMap[23] = -1;          bassClefNoteMap[23] = -1;
-    bassClefNoteMap[22] =  7; //G2     bassClefNoteMap[22] =  7; //G2
-    bassClefNoteMap[21] = -1;          bassClefNoteMap[21] =  8;  // Gb/F#2
-    bassClefNoteMap[20] =  8; //F2     bassClefNoteMap[20] =  [8,9]; //F2
-    bassClefNoteMap[19] =  9; //E2     bassClefNoteMap[19] =  9; //E2
-    bassClefNoteMap[18] = -1;          bassClefNoteMap[18] = -1;
-    bassClefNoteMap[17] = 10; //D2     bassClefNoteMap[17] = 10; //D2
-    bassClefNoteMap[16] = -1;          bassClefNoteMap[16] = -1;
-    bassClefNoteMap[15] = 11; //C2     bassClefNoteMap[15] = 11; //C2
-    bassClefNoteMap[14] = 12; //B1     bassClefNoteMap[14] = 12; //B1
-    bassClefNoteMap[13] = -1;          bassClefNoteMap[13] = -1;
-    bassClefNoteMap[12] = 13; //A1     bassClefNoteMap[12] = 13; //A1
-    bassClefNoteMap[11] = -1;          bassClefNoteMap[11] = -1;
-    bassClefNoteMap[10] = 14; //G1     bassClefNoteMap[10] = 14; //G1
-    start at root find default line #,
-      to make it easy loop up by steps and assign lines
-      then go through notes that don't have lines and assign them values
-
     - add key signature on staff
     - add MINOR
     - add chromatic (12 keys) (that will change the numberOfNotesInRange settings)
