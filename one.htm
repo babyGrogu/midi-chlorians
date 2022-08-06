@@ -13,8 +13,6 @@
 		<script src="onek.js"></script>
     <script type="text/babel" src="oner.js"></script>
   
-  <!--<script type="text/babel" src="bkp/eitr.js"></script>-->
-
     <style>
 			#note { font-size: 46px; }
 			#lastPlayed { font-size: 23px; }
@@ -24,17 +22,17 @@
     <div><span id="pitch">--</span>Hz</div>
     <div><span id="note">--</span></div>   
     <div id="detune"><span id="detune_amt">--</span><span id="flat">cents &#9837;</span><span id="sharp">cents &#9839;</span></div>
-    <div><span id="lastPlayed"></span></div>   
+    <div><span id="lastPlayed">&nbsp;</span></div>   
     <div id="reactRoot"></div>
     <div id="konvaRoot"></div>
     <div>
      <ul>
        <li> staff is a bass clef (not a treble clef)
-       <li> notes played are from the C Major scale
        <li> if desired choose a range of notes to be shown
        <li> press start listening to activate microphone and accept any popups
        <li> play the notes before they reach the center green target zone, or notes will pause until left most note is played
        <li> use 'Slower' or 'Faster' to adujst the speed of the notes moving
+       <li> keyboard typing in a note letter is equivalent to playing that note, disregard sharps or flats when typing
      </ul>
     </div>
 	</body>
