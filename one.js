@@ -71,7 +71,7 @@ let lastRandomNote = {n:-1};
 let notePlayedCorrectlyCnt = 0;
 let pitchElem, noteElem, detuneElem, detuneAmount, lastPlayed;
 let selectInput = 'mic'; 
-let selectRangeLow = 2; //7;
+let selectRangeLow = 2;
 let selectRangeHigh = 27; 
 
 let instruments = {
@@ -470,8 +470,8 @@ function startKeyBoardListening() {
 
 /**
   todo:
-    - add key signature on staff
-    - add MINOR
+    - add staff and key signature on staff
+    - add MINOR 15 scales
     - add chromatic (12 keys) (that will change the numberOfNotesInRange settings)
       - means adding konva sharps and flats (# for sharp keys, b for flats)
     - if mode not to stop then color notes green good / red bad

@@ -15,7 +15,7 @@ let initialControls = {
   input: selectInput,
   instrument: INST_BASS4,
   key,
-  rangeLow: selectRangeLow,  // value of perfect note's  .i for BASS4
+  rangeLow: 7,  // value of perfect note's  .i for BASS4
   rangeHigh: selectRangeHigh, // value of perfect note's  .i for BASS4
   velocity: animationVelocity
 };
@@ -68,15 +68,19 @@ function controlsReducer(state, action) {
       calculateNotesForKey(state);
       key = state.key; // todo: when we get konva into react this line should go away
       renderLowestKeyNotes();
-      action.target.blur(); // remove focus from select widget so typing notes does not change the selection
+      action.target.blur(); // remove focus from widget so typing does not change selection
       return state;
     case (CMD_RANGE_LOW):
       newState = {...state, rangeLow: action.low};
       calculateLowHighRange(newState);
+      calculateNotesForKey(newState);
+      action.target.blur();
       return newState;
     case (CMD_RANGE_HIGH):
       newState = {...state, rangeHigh: action.high};
       calculateLowHighRange(newState);
+      calculateNotesForKey(newState);
+      action.target.blur();
       return newState;
     case (CMD_SET_INST):
       // todo:
@@ -96,8 +100,6 @@ function controlsReducer(state, action) {
 const Controls = (props) => {
   const [controlData, dispatch] = useReducer(controlsReducer, initialControls);
   selectInput = controlData.input;
-  selectRangeLow = controlData.rangeLow;
-  selectRangeHigh = controlData.rangeHigh;
 
   function noteLabelForRange(str) {
     function sp(s, ss, i) {
@@ -169,7 +171,8 @@ const Controls = (props) => {
     return str;
   }
   function renderNotesForRangeSelection() {
-    return notesPerfectLowHighRange.map(n => {
+    const notesForRangeSelectors = notesPerfect.slice(selectRangeLow, selectRangeHigh +1)
+    return notesForRangeSelectors.map(n => {
       return (<option key={n.i} value={n.i}>{noteLabelForRange(n.n) + ' ' + n.l}</option>);
     });
   }
@@ -213,7 +216,8 @@ const Controls = (props) => {
           onChange={e =>
             dispatch({
               command: CMD_RANGE_LOW,
-              low: parseInt(e.currentTarget.value,10)
+              low: parseInt(e.currentTarget.value,10),
+              target: e.currentTarget,
             })
           }
         >{ renderNotesForRangeSelection() }</select>
@@ -225,7 +229,8 @@ const Controls = (props) => {
           onChange={e =>
             dispatch({
               command: CMD_RANGE_HIGH,
-              high: parseInt(e.currentTarget.value,10)
+              high: parseInt(e.currentTarget.value,10),
+              target: e.currentTarget
             })
           }
         >
