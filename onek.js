@@ -371,6 +371,11 @@ function findLeftMostNoteToPlay() {
 function notePlayedCorrectly() {
   destroyLeftMostNote();
   eightIsGreate();
+  clearTimeout(padTimer);
+  if (saw1) { saw1.stop(); saw2.stop(); square.stop(); }
+  if (tone) {
+    beep();
+  }
 }
 
 function destroyAllNotes() {
@@ -511,6 +516,9 @@ const animateRoll = new Konva.Animation(function (frame) {
     const leftMostGroupX = leftMostGroup.getAttr('x');
     if (leftMostGroupX + rollX <= targetX - targetZoneWidth/2) {
       animateRoll.stop();
+      if (tone) {
+        loopPadStart(leftMostGroup.attrs.note.f);
+      }
       return;
     }
   }

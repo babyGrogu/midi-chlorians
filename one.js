@@ -71,8 +71,7 @@ let lastRandomNote = {n:-1};
 let notePlayedCorrectlyCnt = 0;
 let pitchElem, noteElem, detuneElem, detuneAmount, lastPlayed;
 let selectInput = 'mic'; 
-let selectRangeLow = 2;
-let selectRangeHigh = 27; 
+let saw1, saw2, square;
 
 let instruments = {
   // using javascript syntax for "computed keys"
@@ -148,7 +147,7 @@ function gotStreamWrapper(stream) {
   // among numerateDevices, otherwise we don't see the USB device
   navigator.mediaDevices.enumerateDevices().then((devices) => {
     devices.forEach(device => {
-      if (device.label.indexOf('USB Audio') > -1) {
+      if (device.label.indexOf('USB ') > -1) {
         try {
           navigator.getUserMedia(
             {audio: {deviceId: device.deviceId} }, gotStream, error);
@@ -430,42 +429,67 @@ function chooseNote() {
 
   // add note to staff
   renderNote(choosenOne);
-
-  /*
-  renderNote(2);  //b
-  renderNote(3);  //c
-  renderNote(5);  //d
-  renderNote(7);  //e
-  renderNote(8);  //f
-  renderNote(10); //g
-  renderNote(12); //a
-  renderNote(14); //b
-  renderNote(15); //c
-  renderNote(17); //d
-
-  renderNote(19);
-  renderNote(20);
-  renderNote(22);
-  renderNote(24);
-  renderNote(26);
-  renderNote(27);
-  renderNote(29);
-  renderNote(31);
-  renderNote(32);
-  renderNote(34);
-  */
 }
 
-function startKeyBoardListening() {
-  document.addEventListener('keyup', evt => {
-    if (evt.key) {
-      const leftMostNote = findLeftMostNoteToPlay();
-      if (leftMostNote && leftMostNote.n.toLowerCase().indexOf(evt.key) > -1) {
-        lastPlayed.innerHTML = 'Correctly keyed: ' + leftMostNote.n;
-        notePlayedCorrectly();
-      }
-    }
-  });
+function pad(freq) {
+  if (saw1) { saw1.stop(); saw2.stop(); square.stop(); }
+
+  let t = 0;
+  var lnf = Math.log(freq);
+  var peakScale = (0.0529162 * lnf - 0.785209) * lnf + 3.57215
+  var decayScale = 0.15;
+
+  var attack = 0.017;
+  var peakTime = t + attack;
+  var sawPeak = 0.44 * peakScale;
+  var squarePeak = 0.5 * sawPeak;
+
+  var filter = audioContext.createBiquadFilter();
+  filter.connect(audioContext.destination);
+  filter.frequency.value = 402;
+  filter.detune.setValueAtTime(756, t);
+  filter.detune.setTargetAtTime(0, peakTime, 2 * decayScale);
+
+  var sawGain = audioContext.createGain();
+  sawGain.connect(filter);
+  sawGain.gain.setValueAtTime(0, t);
+  sawGain.gain.linearRampToValueAtTime(sawPeak, peakTime);
+
+  saw1 = audioContext.createOscillator();
+  saw1.type = "sawtooth";
+  saw1.frequency.value = 1.0035 * freq;
+  saw1.connect(sawGain);
+  saw1.start(t);
+
+  saw2 = audioContext.createOscillator();
+  saw2.type = "sawtooth";
+  saw2.frequency.value = 0.9965 * freq;
+  saw2.connect(sawGain);
+  saw2.start(t);
+
+  var squareGain = audioContext.createGain();
+  squareGain.connect(filter);
+  squareGain.gain.setValueAtTime(0, t);
+  squareGain.gain.linearRampToValueAtTime(squarePeak, peakTime);
+
+  square = audioContext.createOscillator();
+  square.type = "square";
+  square.frequency.value = freq;
+  square.connect(squareGain);
+  square.start(t);
+}
+
+function beep() {
+  const beepGain = audioContext.createGain();
+  beepGain.connect(audioContext.destination);
+
+  const beep = audioContext.createOscillator();
+  beep.type = "sine";
+  beep.frequency.value = 404;
+  beep.connect(beepGain);
+  const now = audioContext.currentTime;
+  beep.start(now);
+  beep.stop(now + 0.204);
 }
 
 /**
@@ -479,7 +503,7 @@ function startKeyBoardListening() {
       - put X note(s) at target, play X note(s) repeatedly on beat (or  bar)
         wait for user to play that note (near the beat) for 2 or 3 or 4 (config) beats
       - see how many notes someone can get in a minute
-    - figure out how to show sharps and flats in keys and ranges
+    - add select list for people to choose their device for their particular 'USB ' cable
     - fix interaction where user changes low/high range and then
        that setting is no longer in the key (no change of inst)
        - maybe add a flag for the low/high having been set
@@ -509,4 +533,5 @@ function startKeyBoardListening() {
     - put whole thing into web tool chain
        then konva can be used in react if that is ever needed
     - add a tooltip/mousetip above each note saying what each one represents
+    - add spectro like this https://www.youtube.com/watch?v=eEeUFB1iIDo
 */

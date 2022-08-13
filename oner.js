@@ -1,3 +1,59 @@
+let selectRangeLow = 2;
+let selectRangeHigh = 27; 
+let tone = false; // play tone when stopped at target
+let loops = 4; // num of loops
+let loopPlayTime = 2008;
+let loopPauseTime = 4023;
+let loopFreq, loopsCtr, padTimer;
+
+//----------------- key board listener  --------------
+function startKeyBoardListening() {
+  document.addEventListener('keyup', evt => {
+    if (evt.key && evt.key === ' ') {
+      loopPadRestart(loopFreq);
+    }
+    // todo: put this first and check for abcdefg keys
+    else if (evt.key) {
+      const leftMostNote = findLeftMostNoteToPlay();
+      if (leftMostNote && leftMostNote.n.toLowerCase().indexOf(evt.key) > -1) {
+        lastPlayed.innerHTML = 'Correctly keyed: ' + leftMostNote.n;
+        notePlayedCorrectly();
+      }
+    }
+  });
+}
+//----------------- key board listeners -------------
+
+//--------------------- loop pad --------------------
+function loopPadStart(f) {
+  if (saw1) { saw1.stop(); saw2.stop(); square.stop(); }
+  loopsCtr = loops;
+  loopFreq = f;
+  loopPadRestart();
+}
+function loopPadRestart() {
+  pad(loopFreq);
+  padTimer = setTimeout(() => {
+    loopPadStop(loopFreq);
+  },loopPlayTime);
+}
+function loopPadStop() {
+  if (saw1) { saw1.stop(); saw2.stop(); square.stop(); }
+  loopsCtr--;
+  if (loopsCtr > 0) {
+    padTimer = setTimeout(() => {
+      loopPadRestart();
+    },loopPauseTime);
+  }
+}
+//--------------------- loop pad --------------------
+
+
+
+
+
+
+//--------------------- react Controls --------------------
 'use strict';
 
 const { useState, useReducer, createElement } = React
@@ -8,8 +64,14 @@ const CMD_SET_INST = 'SET_INST'
 const CMD_SET_KEY = 'SET_KEY'
 const CMD_SET_SLOWER = 'SET_SLOWER';
 const CMD_SET_FASTER = 'SET_FASTER';
+const CMD_SET_TONE = 'SET_TONE'
+const CMD_SET_LOOPS = 'SET_LOOPS'
+const CMD_SET_LOOP_PLAY_TIME = 'CMD_SET_LOOP_PLAY_TIME'
+const CMD_SET_LOOP_PAUSE_TIME = 'CMD_SET_LOOP_PAUSE_TIME'
 const CMD_RANGE_LOW = 'RANGE_LOW';
 const CMD_RANGE_HIGH = 'RANGE_HIGH';
+
+
 
 let initialControls = {
   input: selectInput,
@@ -17,7 +79,9 @@ let initialControls = {
   key,
   rangeLow: 7,  // value of perfect note's  .i for BASS4
   rangeHigh: selectRangeHigh, // value of perfect note's  .i for BASS4
-  velocity: animationVelocity
+  velocity: animationVelocity,
+  tone,
+  loops,
 };
 
 let notesPerfectLowHighRange = [];
@@ -60,6 +124,8 @@ function calculateLowHighRange(state) {
 
 const animateSpeed = (m) => animationVelocity = Math.round(animationVelocity * m);
 
+
+
 function controlsReducer(state, action) {
   let newState = {};
   switch(action.command) {
@@ -82,9 +148,6 @@ function controlsReducer(state, action) {
       calculateNotesForKey(newState);
       action.target.blur();
       return newState;
-    case (CMD_SET_INST):
-      // todo:
-      return state;
     case (CMD_SET_INPUT):
       return {...state, input: action.input};
     case (CMD_SET_SLOWER):
@@ -93,6 +156,21 @@ function controlsReducer(state, action) {
     case (CMD_SET_FASTER):
       animateSpeed(1.05);
       return {...state, velocity: animationVelocity};
+    case (CMD_SET_TONE):
+      tone = action.tone; // todo: when we get konva into react this line should go away
+      return {...state, tone: action.tone};
+    case (CMD_SET_LOOPS):
+      loops = action.loops; // todo: when we get konva into react this line should go away
+      return {...state, loops: action.loops};
+    case (CMD_SET_LOOP_PLAY_TIME):
+      loopPlayTime = action.loopPlayTime; // todo: ...
+      return {...state, loopPlayTime: action.loopPlayTime};
+    case (CMD_SET_LOOP_PAUSE_TIME):
+      loopPauseTime = action.loopPauseTime; // todo: ...
+      return {...state, loopPauseTime: action.loopPauseTime};
+    case (CMD_SET_INST):
+      // todo:
+      return state;
   }
   return state;
 }
@@ -100,6 +178,7 @@ function controlsReducer(state, action) {
 const Controls = (props) => {
   const [controlData, dispatch] = useReducer(controlsReducer, initialControls);
   selectInput = controlData.input;
+  loops = controlData.loops;
 
   function noteLabelForRange(str) {
     function sp(s, ss, i) {
@@ -204,7 +283,7 @@ const Controls = (props) => {
           <option value="mic">Microphone</option>
           <option value="cable">Instrument Cable (to USB)</option>
         </select>
-        <span> input</span>
+        <label> input</label>
       </div>
 
       <div>
@@ -221,7 +300,7 @@ const Controls = (props) => {
             })
           }
         >{ renderNotesForRangeSelection() }</select>
-        <span> lowest note </span>
+        <label> lowest note </label>
       </div>
 
       <div>
@@ -235,7 +314,7 @@ const Controls = (props) => {
           }
         >
         >{ renderNotesForRangeSelection() }</select>
-        <span> highest note </span>
+        <label> highest note </label>
       </div>
 
       {/*
@@ -268,14 +347,48 @@ const Controls = (props) => {
             })
           }
         >{ renderKeysForKeySelection() }</select>
-       <span> key: scale notes</span>
+       <label> key: scale notes</label>
        <span> { renderNotesForKey() }</span>
       </div>
 
       <div>
         <button id="slower" onClick={() => dispatch({command: CMD_SET_SLOWER})}>Slower</button>
         <button id="faster" onClick={() => dispatch({command: CMD_SET_FASTER})}>Faster</button>
-        <span> speed {controlData.velocity}</span>
+        <label> speed {controlData.velocity}</label>
+      </div>
+
+      <div>
+        <input type="checkbox" id="tone" value="tone" onChange={e =>
+          dispatch({
+            command: CMD_SET_TONE,
+            tone: e.currentTarget.checked,
+          })
+        }/>
+        <label htmlFor="tone">Play note when stopped at target</label>
+
+        <input type="number" id="loops" value={loops} onChange={e =>
+          dispatch({
+            command: CMD_SET_LOOPS,
+            loops: parseInt(e.currentTarget.value,10),
+          })
+        }/>
+        <label htmlFor="loops">loop number</label>
+
+        <input type="number" id="loopPlayTime" value={loopPlayTime} onChange={e =>
+          dispatch({
+            command: CMD_SET_LOOP_PLAY_TIME,
+            loopPlayTime: parseInt(e.currentTarget.value,10),
+          })
+        }/>
+        <label htmlFor="loopPlayTime">loopPlayTime number</label>
+
+        <input type="number" id="loopPauseTime" value={loopPauseTime} onChange={e =>
+          dispatch({
+            command: CMD_SET_LOOP_PAUSE_TIME,
+            loopPauseTime: parseInt(e.currentTarget.value,10),
+          })
+        }/>
+        <label htmlFor="loopPauseTime">loopPauseTime number</label>
       </div>
 
     </div>
