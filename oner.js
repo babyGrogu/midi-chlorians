@@ -1,9 +1,10 @@
+let octEq = true;
 let selectRangeLow = 2;
-let selectRangeHigh = 27; 
+let selectRangeHigh = 34; 
 let tone = false; // play tone when stopped at target
-let loops = 4; // num of loops
-let loopPlayTime = 2008;
-let loopPauseTime = 4023;
+let loops = 2; // num of loops
+let loopPlayTime = 808;
+let loopPauseTime = 2023;
 let loopFreq, loopsCtr, padTimer;
 
 //----------------- key board listener  --------------
@@ -12,7 +13,6 @@ function startKeyBoardListening() {
     if (evt.key && evt.key === ' ') {
       loopPadRestart(loopFreq);
     }
-    // todo: put this first and check for abcdefg keys
     else if (evt.key) {
       const leftMostNote = findLeftMostNoteToPlay();
       if (leftMostNote && leftMostNote.n.toLowerCase().indexOf(evt.key) > -1) {
@@ -59,15 +59,16 @@ function loopPadStop() {
 const { useState, useReducer, createElement } = React
 const { createRoot } = ReactDOM;
 
-const CMD_SET_INPUT = 'SET_INPUT'
-const CMD_SET_INST = 'SET_INST'
-const CMD_SET_KEY = 'SET_KEY'
-const CMD_SET_SLOWER = 'SET_SLOWER';
-const CMD_SET_FASTER = 'SET_FASTER';
-const CMD_SET_TONE = 'SET_TONE'
-const CMD_SET_LOOPS = 'SET_LOOPS'
-const CMD_SET_LOOP_PLAY_TIME = 'CMD_SET_LOOP_PLAY_TIME'
-const CMD_SET_LOOP_PAUSE_TIME = 'CMD_SET_LOOP_PAUSE_TIME'
+const CMD_SET_INPUT = 'INPUT';
+const CMD_SET_OCTEQ = 'OCTEQ';
+const CMD_SET_INST = 'INST';
+const CMD_SET_KEY = 'KEY';
+const CMD_SET_SLOWER = 'SLOWER';
+const CMD_SET_FASTER = 'FASTER';
+const CMD_SET_TONE = 'TONE';
+const CMD_SET_LOOPS = 'LOOPS';
+const CMD_SET_LOOP_PLAY_TIME = 'LOOP_PLAY_TIME';
+const CMD_SET_LOOP_PAUSE_TIME = 'LOOP_PAUSE_TIME';
 const CMD_RANGE_LOW = 'RANGE_LOW';
 const CMD_RANGE_HIGH = 'RANGE_HIGH';
 
@@ -75,6 +76,7 @@ const CMD_RANGE_HIGH = 'RANGE_HIGH';
 
 let initialControls = {
   input: selectInput,
+  octEq,
   instrument: INST_BASS4,
   key,
   rangeLow: 7,  // value of perfect note's  .i for BASS4
@@ -150,6 +152,9 @@ function controlsReducer(state, action) {
       return newState;
     case (CMD_SET_INPUT):
       return {...state, input: action.input};
+    case (CMD_SET_OCTEQ):
+      octEq = action.octEq; // todo: ...
+      return {...state, octEq: action.octEq};
     case (CMD_SET_SLOWER):
       animateSpeed(0.95);
       return {...state, velocity: animationVelocity};
@@ -261,7 +266,8 @@ const Controls = (props) => {
     ));
   }
   function renderNotesForKey() {
-    return notesInKey.map((n,i) => ( <span key={i}>{noteLabelForKey(n)} </span> ));
+    //return notesInKey.map((n,i) => ( <span key={i}>{noteLabelForKey(n)} </span> ));
+    return notesInKey.map((n,i) => ( <span key={i}>&nbsp;&nbsp;&nbsp;&nbsp;<input type="checkbox" id={'noteInKeyCheck' + n} value={'noteInKeyCheck' + n} onChange={e => console.log('noteInKeyChecked ' + n)} /><span>{noteLabelForKey(n)}</span></span> ));
   }
   function listenR() {
     audioContext = new AudioContext();
@@ -284,6 +290,14 @@ const Controls = (props) => {
           <option value="cable">Instrument Cable (to USB)</option>
         </select>
         <label> input</label>
+
+        <input type="checkbox" id="octavesEqual" value="octavesEqual" checked={octEq} onChange={e =>
+          dispatch({
+            command: CMD_SET_OCTEQ,
+            octEq: e.currentTarget.checked,
+          })
+        }/>
+        <label htmlFor="octavesEqual">Octave notes are equal</label>
       </div>
 
       <div>
@@ -364,7 +378,7 @@ const Controls = (props) => {
             tone: e.currentTarget.checked,
           })
         }/>
-        <label htmlFor="tone">Play note when stopped at target</label>
+        <label htmlFor="tone">Play note when stopped at target </label>
 
         <input type="number" id="loops" value={loops} onChange={e =>
           dispatch({

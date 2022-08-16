@@ -414,6 +414,7 @@ function getNumberOfNotes() {
 }
 
 function renderLowestKeyNotes() {
+  if (audioContext === null) return;
   //console.log('   --  test start   --');
   destroyAllNotes();
   const firstNoteOfKeyIndex =  notesPerfectInKeyForRange.findIndex(n => n.n === key.root);

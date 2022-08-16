@@ -68,8 +68,9 @@ let key = keys[0]; // 0 = C major
 let chooseNoteTimer = -1;
 let animationFramesCtr = 0;
 let lastRandomNote = {n:-1}; 
-let notePlayedCorrectlyCnt = 0;
-let pitchElem, noteElem, detuneElem, detuneAmount, lastPlayed;
+let playedCnt = 0;
+let playedCntReq = 42;
+let pitchElem, noteElem, numCorrect, detuneElem, detuneAmount, lastPlayed;
 let selectInput = 'mic'; 
 let saw1, saw2, square;
 
@@ -114,6 +115,7 @@ window.onload = function () {
 
 	pitchElem = document.getElementById("pitch");
 	noteElem = document.getElementById("note");
+	numCorrect = document.getElementById("numCorrect");
 	detuneElem = document.getElementById("detune");
 	detuneAmount = document.getElementById("detune_amt");
 	lastPlayed = document.getElementById("lastPlayed");
@@ -148,6 +150,10 @@ function gotStreamWrapper(stream) {
   navigator.mediaDevices.enumerateDevices().then((devices) => {
     devices.forEach(device => {
       if (device.label.indexOf('USB ') > -1) {
+        // todo: do we need to put this try-catch into a setTimeout
+        // can two getUserMedia's be called recursively?
+        // seems like this 'cable' method fails sometimes
+
         try {
           navigator.getUserMedia(
             {audio: {deviceId: device.deviceId} }, gotStream, error);
@@ -174,6 +180,7 @@ function gotStream(stream) {
     audioContext.resume();
 
     updatePitch();
+    beep();
 }
 
 
@@ -265,7 +272,7 @@ function updatePitch() {
 		noteElem.innerHTML = notes[note%12];
 
     if (noteMap[0].f <= noteFreq && noteFreq < noteMap[noteMap.length-1].f) {
-      let noteHeard = null
+      let noteHeard = null;
 
       //-----------
       // this is an optimization which may not be needed at all...
@@ -302,18 +309,16 @@ function updatePitch() {
       }
 
       const leftMostNote = findLeftMostNoteToPlay();
-      //if (leftMostNote &&
-      //    noteHeard.n === leftMostNote.n && noteHeard.l === leftMostNote.l) {
-      // TODO: change later but for now make the notes level independant
-      if (leftMostNote && noteHeard && noteHeard.n === leftMostNote.n) {
-        if (notePlayedCorrectlyCnt >= 4) {
-          notePlayedCorrectlyCnt = 0;
-          // TODO: change later but for now make the notes level independant
-          //lastPlayed.innerHTML = 'Correctly played: ' + noteHeard.n  + ' ' + noteHeard.l;
-          lastPlayed.innerHTML = 'Correctly played: ' + noteHeard.n;
+      if (leftMostNote && noteHeard.n === leftMostNote.n &&
+          (octEq ? true : noteHeard.l === leftMostNote.l)) {
+        if (playedCnt >= playedCntReq) {
+          playedCnt = 0;
+          lastPlayed.innerHTML = 'Correctly played: ' + noteHeard.n +
+            ' ' + leftMostNote.l + '=' + noteHeard.l;
           notePlayedCorrectly();
         }
-        notePlayedCorrectlyCnt++;
+        numCorrect.innerHTML = playedCnt + '/' + playedCntReq;
+        playedCnt++;
       }
     }
 
