@@ -1,52 +1,32 @@
 let octEq = true;
+let amp = false;
 let selectRangeLow = 2;
 let selectRangeHigh = 34; 
-let tone = false; // play tone when stopped at target
-let loops = 2; // num of loops
-let loopPlayTime = 808;
-let loopPauseTime = 2023;
-let loopFreq, loopsCtr, padTimer;
+let tone = true; // play tone when stopped at target
+let releaseWhenHeard = false;
+let chordOrArpg = 'chord'; // play fifth when stopped at target
+let tone3 = false; // play third when stopped at target
+let tone5 = true; // play fifth when stopped at target
+let loops = 4; // num of loops
+let loopPlayTime = 2345;
+let loopPauseTime = 8;
 
 //----------------- key board listener  --------------
 function startKeyBoardListening() {
   document.addEventListener('keyup', evt => {
     if (evt.key && evt.key === ' ') {
-      loopPadRestart(loopFreq);
+      loopPadRestart();
     }
     else if (evt.key) {
       const leftMostNote = findLeftMostNoteToPlay();
       if (leftMostNote && leftMostNote.n.toLowerCase().indexOf(evt.key) > -1) {
         lastPlayed.innerHTML = 'Correctly keyed: ' + leftMostNote.n;
-        notePlayedCorrectly();
+        releaseNoteAtTarget();
       }
     }
   });
 }
 //----------------- key board listeners -------------
-
-//--------------------- loop pad --------------------
-function loopPadStart(f) {
-  if (saw1) { saw1.stop(); saw2.stop(); square.stop(); }
-  loopsCtr = loops;
-  loopFreq = f;
-  loopPadRestart();
-}
-function loopPadRestart() {
-  pad(loopFreq);
-  padTimer = setTimeout(() => {
-    loopPadStop(loopFreq);
-  },loopPlayTime);
-}
-function loopPadStop() {
-  if (saw1) { saw1.stop(); saw2.stop(); square.stop(); }
-  loopsCtr--;
-  if (loopsCtr > 0) {
-    padTimer = setTimeout(() => {
-      loopPadRestart();
-    },loopPauseTime);
-  }
-}
-//--------------------- loop pad --------------------
 
 
 
@@ -61,11 +41,16 @@ const { createRoot } = ReactDOM;
 
 const CMD_SET_INPUT = 'INPUT';
 const CMD_SET_OCTEQ = 'OCTEQ';
+const CMD_SET_AMP = 'AMP';
 const CMD_SET_INST = 'INST';
 const CMD_SET_KEY = 'KEY';
 const CMD_SET_SLOWER = 'SLOWER';
 const CMD_SET_FASTER = 'FASTER';
 const CMD_SET_TONE = 'TONE';
+const CMD_SET_RELEASE_WHEN_HEARD = 'RELEASE';
+const CMD_SET_TONE3 = 'TONE3';
+const CMD_SET_TONE5 = 'TONE5';
+const CMD_SET_CHORD_OR_ARPG = 'CHORD_OR_ARPG';
 const CMD_SET_LOOPS = 'LOOPS';
 const CMD_SET_LOOP_PLAY_TIME = 'LOOP_PLAY_TIME';
 const CMD_SET_LOOP_PAUSE_TIME = 'LOOP_PAUSE_TIME';
@@ -77,12 +62,17 @@ const CMD_RANGE_HIGH = 'RANGE_HIGH';
 let initialControls = {
   input: selectInput,
   octEq,
+  amp,
   instrument: INST_BASS4,
   key,
   rangeLow: 7,  // value of perfect note's  .i for BASS4
   rangeHigh: selectRangeHigh, // value of perfect note's  .i for BASS4
   velocity: animationVelocity,
   tone,
+  releaseWhenHeard,
+  tone3,
+  tone5,
+  chordOrArpg,
   loops,
 };
 
@@ -93,18 +83,20 @@ calculateNotesForKey(initialControls);
 
 function calculateNotesForKey(state) {
   // figure out what notes are in the user specifed key
-  notesInKey = [];
+  // NOTE: noteNamesInKey might be better to be the note object rather than just the
+  // names. If using notes that would make the
+  noteNamesInKey = [];
   for (let i = notes.indexOf(state.key.root), j = 0;
        j < keySteps.length;
        i = (i + keySteps[j]) % notes.length, j++) {
     const noteInKey = notes[i];
-    notesInKey.push(noteInKey);
+    noteNamesInKey.push(noteInKey);
   }
 
   // for this key find the notes in range
   notesPerfectInKeyForRange.length = 0;
   notesPerfectLowHighRange.forEach(n => {
-    if (notesInKey.indexOf(n.n) > -1) {
+    if (noteNamesInKey.indexOf(n.n) > -1) {
       notesPerfectInKeyForRange.push(n);
     }
   });
@@ -155,6 +147,9 @@ function controlsReducer(state, action) {
     case (CMD_SET_OCTEQ):
       octEq = action.octEq; // todo: ...
       return {...state, octEq: action.octEq};
+    case (CMD_SET_AMP):
+      amp = action.amp; // todo: ...
+      return {...state, amp: action.amp};
     case (CMD_SET_SLOWER):
       animateSpeed(0.95);
       return {...state, velocity: animationVelocity};
@@ -163,10 +158,27 @@ function controlsReducer(state, action) {
       return {...state, velocity: animationVelocity};
     case (CMD_SET_TONE):
       tone = action.tone; // todo: when we get konva into react this line should go away
-      return {...state, tone: action.tone};
+      action.target.blur(); // remove focus from widget so typing does not change selection
+      return {...state, tone};
+    case (CMD_SET_RELEASE_WHEN_HEARD):
+      releaseWhenHeard = action.release; // todo: when we get konva into react this line should go away
+      action.target.blur(); // remove focus from widget so typing does not change selection
+      return {...state, releaseWhenHeard};
+    case (CMD_SET_CHORD_OR_ARPG):
+      chordOrArpg = action.chordOrArpg; // todo: ... into react this line should go away
+      action.target.blur(); // remove focus from widget so typing does not change selection
+      return {...state, chordOrArpg };
     case (CMD_SET_LOOPS):
       loops = action.loops; // todo: when we get konva into react this line should go away
-      return {...state, loops: action.loops};
+      return {...state, loops};
+    case (CMD_SET_TONE3):
+      tone3 = action.tone3; // todo: when we get konva into react this line should go away
+      action.target.blur(); // remove focus from widget so typing does not change selection
+      return {...state, tone3: action.tone3};
+    case (CMD_SET_TONE5):
+      tone5 = action.tone5; // todo: when we get konva into react this line should go away
+      action.target.blur(); // remove focus from widget so typing does not change selection
+      return {...state, tone5: action.tone5};
     case (CMD_SET_LOOP_PLAY_TIME):
       loopPlayTime = action.loopPlayTime; // todo: ...
       return {...state, loopPlayTime: action.loopPlayTime};
@@ -266,42 +278,33 @@ const Controls = (props) => {
     ));
   }
   function renderNotesForKey() {
-    //return notesInKey.map((n,i) => ( <span key={i}>{noteLabelForKey(n)} </span> ));
-    return notesInKey.map((n,i) => ( <span key={i}>&nbsp;&nbsp;&nbsp;&nbsp;<input type="checkbox" id={'noteInKeyCheck' + n} value={'noteInKeyCheck' + n} onChange={e => console.log('noteInKeyChecked ' + n)} /><span>{noteLabelForKey(n)}</span></span> ));
+    return noteNamesInKey.map((n,i) => ( <span key={i}>{noteLabelForKey(n)} </span> ));
+    //return noteNamesInKey.map((n,i) => ( <span key={i}>&nbsp;&nbsp;&nbsp;&nbsp;<input type="checkbox" id={'noteInKeyCheck' + n} value={'noteInKeyCheck' + n} onChange={e => console.log('noteInKeyChecked ' + n)} /><span>{noteLabelForKey(n)}</span></span> ));
   }
-  function listenR() {
+  function listenR(e) {
     audioContext = new AudioContext();
     startAudioProcessing();
     startKeyBoardListening();
     eightIsGreate();
+    e.target.blur(); // removes focus
   }
 
   return (
     <div>
 
       <div>
-        <select id="selectInput" onChange={e =>
+        <select id="selectRoot"
+          value={keys.findIndex(k => k.label === controlData.key.label)}
+          onChange={e =>
             dispatch({
-              command: CMD_SET_INPUT,
-              input: e.currentTarget.value
+              command: CMD_SET_KEY,
+              key: e.currentTarget.value,
+              target: e.currentTarget
             })
-        }>
-          <option value="mic">Microphone</option>
-          <option value="cable">Instrument Cable (to USB)</option>
-        </select>
-        <label> input</label>
-
-        <input type="checkbox" id="octavesEqual" value="octavesEqual" checked={octEq} onChange={e =>
-          dispatch({
-            command: CMD_SET_OCTEQ,
-            octEq: e.currentTarget.checked,
-          })
-        }/>
-        <label htmlFor="octavesEqual">Octave notes are equal</label>
-      </div>
-
-      <div>
-        <button onClick={listenR}>start listening</button>
+          }
+        >{ renderKeysForKeySelection() }</select>
+       <label> key: scale notes</label>
+       <span> { renderNotesForKey() }</span>
       </div>
 
       <div>
@@ -331,6 +334,16 @@ const Controls = (props) => {
         <label> highest note </label>
       </div>
 
+      <div>
+        <input type="checkbox" id="octavesEqual" value="octavesEqual" checked={octEq} onChange={e =>
+          dispatch({
+            command: CMD_SET_OCTEQ,
+            octEq: e.currentTarget.checked,
+          })
+        }/>
+        <label htmlFor="octavesEqual">Octave notes are equal</label>
+      </div>
+
       {/*
       <div>
         <select id="selectInst" value={controlData.instrument}
@@ -351,34 +364,89 @@ const Controls = (props) => {
       */}
 
       <div>
-        <select id="selectRoot"
-          value={keys.findIndex(k => k.label === controlData.key.label)}
-          onChange={e =>
+        <select id="selectInput" onChange={e =>
             dispatch({
-              command: CMD_SET_KEY,
-              key: e.currentTarget.value,
-              target: e.currentTarget
+              command: CMD_SET_INPUT,
+              input: e.currentTarget.value
             })
-          }
-        >{ renderKeysForKeySelection() }</select>
-       <label> key: scale notes</label>
-       <span> { renderNotesForKey() }</span>
+        }>
+          <option value="cable">Instrument Cable (to USB)</option>
+          <option value="mic">Microphone</option>
+        </select>
+        <label> input</label>
+
+        <input type="checkbox" id="amp" value="amp" disabled={selectInput === 'mic'} 
+          checked={amp} onChange={e => dispatch({
+            command: CMD_SET_AMP,
+            amp: e.currentTarget.checked,
+          })
+        }/>
+        <label htmlFor="amp">Send input from cable to computer audio output</label>
+
       </div>
 
       <div>
-        <button id="slower" onClick={() => dispatch({command: CMD_SET_SLOWER})}>Slower</button>
-        <button id="faster" onClick={() => dispatch({command: CMD_SET_FASTER})}>Faster</button>
-        <label> speed {controlData.velocity}</label>
+        <button onClick={listenR}>start listening</button>
       </div>
 
       <div>
-        <input type="checkbox" id="tone" value="tone" onChange={e =>
+        <input type="checkbox" id="tone" value="tone" checked={tone} onChange={e =>
           dispatch({
             command: CMD_SET_TONE,
             tone: e.currentTarget.checked,
+            target: e.currentTarget,
           })
         }/>
-        <label htmlFor="tone">Play note when stopped at target </label>
+        <label htmlFor="tone">Hear sound of chord / arpeggio at target </label>
+      </div>
+
+      <div>
+        <input type="checkbox" id="release" value="release" checked={releaseWhenHeard} onChange={e =>
+          dispatch({
+            command: CMD_SET_RELEASE_WHEN_HEARD,
+            release: e.currentTarget.checked,
+            target: e.currentTarget,
+          })
+        }/>
+        <label htmlFor="release">Release note at target when a root note is "heard/sensed" for the required playCountReq, otherwise wait until after the "loop number" is done playing AND correct note is "heard/sensed" again</label>
+        </div>
+
+        <div>
+        <input type="radio" name="chordOrArpg" id="chord" value="chord" checked={chordOrArpg === 'chord'} onChange={e =>
+          dispatch({
+            command: CMD_SET_CHORD_OR_ARPG,
+            chordOrArpg: e.currentTarget.value,
+            target: e.currentTarget,
+          })
+        }/>
+        <label htmlFor="chord">chord </label>
+
+        <input type="radio" name="chordOrArpg" id="arpg" value="arpg" checked={chordOrArpg === 'arpg'} onChange={e =>
+          dispatch({
+            command: CMD_SET_CHORD_OR_ARPG,
+            chordOrArpg: e.currentTarget.value,
+            target: e.currentTarget,
+          })
+        }/>
+        <label htmlFor="arpg">arpeggio </label>
+
+        <input type="checkbox" id="tone3" value="tone3" checked={tone && tone3} onChange={e =>
+          dispatch({
+            command: CMD_SET_TONE3,
+            tone3: e.currentTarget.checked,
+            target: e.currentTarget,
+          })
+        }/>
+        <label htmlFor="tone3">third </label>
+
+        <input type="checkbox" id="tone5" value="tone5" checked={tone && tone5} onChange={e =>
+          dispatch({
+            command: CMD_SET_TONE5,
+            tone5: e.currentTarget.checked,
+            target: e.currentTarget,
+          })
+        }/>
+        <label htmlFor="tone5">fifth </label>
 
         <input type="number" id="loops" value={loops} onChange={e =>
           dispatch({
@@ -386,7 +454,7 @@ const Controls = (props) => {
             loops: parseInt(e.currentTarget.value,10),
           })
         }/>
-        <label htmlFor="loops">loop number</label>
+        <label htmlFor="loops">loop number </label>
 
         <input type="number" id="loopPlayTime" value={loopPlayTime} onChange={e =>
           dispatch({
@@ -394,7 +462,7 @@ const Controls = (props) => {
             loopPlayTime: parseInt(e.currentTarget.value,10),
           })
         }/>
-        <label htmlFor="loopPlayTime">loopPlayTime number</label>
+        <label htmlFor="loopPlayTime">loopPlayTime number </label>
 
         <input type="number" id="loopPauseTime" value={loopPauseTime} onChange={e =>
           dispatch({
@@ -403,6 +471,12 @@ const Controls = (props) => {
           })
         }/>
         <label htmlFor="loopPauseTime">loopPauseTime number</label>
+      </div>
+
+      <div>
+        <button id="slower" onClick={() => dispatch({command: CMD_SET_SLOWER})}>Slower</button>
+        <button id="faster" onClick={() => dispatch({command: CMD_SET_FASTER})}>Faster</button>
+        <label> speed {controlData.velocity}</label>
       </div>
 
     </div>

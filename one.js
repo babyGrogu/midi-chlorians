@@ -71,8 +71,9 @@ let lastRandomNote = {n:-1};
 let playedCnt = 0;
 let playedCntReq = 42;
 let pitchElem, noteElem, numCorrect, detuneElem, detuneAmount, lastPlayed;
-let selectInput = 'mic'; 
-let saw1, saw2, square;
+let selectInput = 'cable'; 
+let loopFreq, loopsCtr, padTimer;
+let padFreqs = {};
 
 let instruments = {
   // using javascript syntax for "computed keys"
@@ -103,7 +104,7 @@ let instruments = {
 };
 
 // arrays of notes
-let notesPerfect, notesInKey, notesPerfectInKeyForRange=[], notesMinimum, notesLow, notesHigh;
+let notesPerfect, noteNamesInKey, notesPerfectInKeyForRange=[], notesMinimum, notesLow, notesHigh;
 
 
 createMap();
@@ -149,12 +150,13 @@ function gotStreamWrapper(stream) {
   // among numerateDevices, otherwise we don't see the USB device
   navigator.mediaDevices.enumerateDevices().then((devices) => {
     devices.forEach(device => {
-      if (device.label.indexOf('USB ') > -1) {
+      if (device.label.indexOf('USB ') > -1 && device.kind.indexOf('audioinput') > -1) {
         // todo: do we need to put this try-catch into a setTimeout
         // can two getUserMedia's be called recursively?
         // seems like this 'cable' method fails sometimes
 
         try {
+  console.log('try ');
           navigator.getUserMedia(
             {audio: {deviceId: device.deviceId} }, gotStream, error);
         } catch (e) {
@@ -167,6 +169,7 @@ function gotStreamWrapper(stream) {
 }
 
 function gotStream(stream) {
+  console.log('gs ');
     // Create an AudioNode from the stream.
     mediaStreamSource = audioContext.createMediaStreamSource(stream);
 
@@ -174,6 +177,10 @@ function gotStream(stream) {
     analyser = audioContext.createAnalyser();
     analyser.fftSize = 2048;
     mediaStreamSource.connect( analyser );
+
+    if (amp) {
+      analyser.connect(audioContext.destination);
+    }
 
     // had to add this to get just the 'use live input' button to work
     // without using one of the other two buttons first
@@ -312,10 +319,11 @@ function updatePitch() {
       if (leftMostNote && noteHeard.n === leftMostNote.n &&
           (octEq ? true : noteHeard.l === leftMostNote.l)) {
         if (playedCnt >= playedCntReq) {
-          playedCnt = 0;
           lastPlayed.innerHTML = 'Correctly played: ' + noteHeard.n +
             ' ' + leftMostNote.l + '=' + noteHeard.l;
-          notePlayedCorrectly();
+          if (releaseWhenHeard || (tone && loopsCtr === 0)){
+            releaseNoteAtTarget();
+          }
         }
         numCorrect.innerHTML = playedCnt + '/' + playedCntReq;
         playedCnt++;
@@ -436,8 +444,10 @@ function chooseNote() {
   renderNote(choosenOne);
 }
 
+// TODO: need to set up a structure that for each frequeency it has a set
+// of saws that can be started and stopped
 function pad(freq) {
-  if (saw1) { saw1.stop(); saw2.stop(); square.stop(); }
+  stopPad(freq);
 
   let t = 0;
   var lnf = Math.log(freq);
@@ -482,6 +492,75 @@ function pad(freq) {
   square.frequency.value = freq;
   square.connect(squareGain);
   square.start(t);
+
+  console.log('pad ' + freq);
+  padFreqs[freq] = [saw1, saw2, square];
+}
+
+function loopPadStart(f) {
+  stopPad(f);
+  loopsCtr = loops;
+  loopFreq = f;
+  loopPadRestart();
+}
+function loopPadRestart() {
+  startPad(loopFreq);
+  padTimer = setTimeout(() => {
+    loopPadStop(loopFreq);
+  },loopPlayTime);
+}
+function loopPadStop() {
+  stopPad(loopFreq);
+  loopsCtr--;
+  if (loopsCtr > 0) {
+    padTimer = setTimeout(() => {
+      loopPadRestart();
+    },loopPauseTime);
+  }
+}
+
+// if previously played a pad at this freq then stop them
+function startPad(freq) {
+  pad(freq);
+  const stoTime = (chordOrArpg === 'chord' ? 0 : loopPlayTime);
+  if (tone3) {
+    const thirdFreq = calcIntervalFreq(freq, 2);
+    setTimeout(() => {
+      pad(thirdFreq);
+    }, (tone5 ? stoTime/3 : stoTime/2) ) ;
+  }
+  if (tone5) {
+    const fifthFreq = calcIntervalFreq(freq, 4);
+    setTimeout(() => {
+      pad(fifthFreq);
+    }, (tone3 ? 2*stoTime/3 : stoTime/2) ) ;
+  }
+}
+
+function stopPad(freq) {
+  function stopFreq(f) {
+    if (padFreqs[f]) {
+      const oscs = padFreqs[f];
+      oscs[0].stop();
+      oscs[1].stop();
+      oscs[2].stop();
+    }
+  }
+  stopFreq(freq);
+  // even if third and fifth are not on now those switches might
+  // have been on when startPad was called, and user might have
+  // turned off the switches while the sound was playing
+  const thirdFreq = calcIntervalFreq(freq, 2);
+  stopFreq(thirdFreq);
+  const fifthFreq = calcIntervalFreq(freq, 4);
+  stopFreq(fifthFreq);
+}
+
+// oops, something is wrong, stop all pads
+function stopPadAll() {
+  for (let f in padFreqs) {
+    stopPad(parseInt(f,10));
+  }
 }
 
 function beep() {
@@ -497,46 +576,34 @@ function beep() {
   beep.stop(now + 0.204);
 }
 
+// among noteNamesInKey
+function calcIntervalFreq(freq, distanceOfNotesInKey) {
+    // get index of note for loopFreq and get note
+    const indexOfRoot = notesPerfect.findIndex(n => n.f === freq);
+    const noteOfRoot = notesPerfect[indexOfRoot];
+    if (noteOfRoot === -1) return -1;
+    // from that note name find the note the distance away
+    const index = noteNamesInKey.findIndex(n => n === noteOfRoot.n);
+    // index of it's fifth note
+    const indexOfDistancedNote = (index + distanceOfNotesInKey) % noteNamesInKey.length;
+    const noteName = noteNamesInKey[indexOfDistancedNote];
+    const distancedNoteIndex = notesPerfect.findIndex(n => n.i > indexOfRoot && n.n === noteName);
+    // return the frequency
+    return notesPerfect[distancedNoteIndex].f;
+}
+
 /**
   todo:
-    - add staff and key signature on staff
+    - add 7th tone for 7th chords
     - add MINOR 15 scales
+    - add staff and key signature on staff
     - add chromatic (12 keys) (that will change the numberOfNotesInRange settings)
       - means adding konva sharps and flats (# for sharp keys, b for flats)
     - if mode not to stop then color notes green good / red bad
-    - add byEar method
-      - put X note(s) at target, play X note(s) repeatedly on beat (or  bar)
-        wait for user to play that note (near the beat) for 2 or 3 or 4 (config) beats
-      - see how many notes someone can get in a minute
     - add select list for people to choose their device for their particular 'USB ' cable
-    - fix interaction where user changes low/high range and then
-       that setting is no longer in the key (no change of inst)
-       - maybe add a flag for the low/high having been set
-       - if current low/high setting is in new instKey data use it otherwise
-         erate it and go to defualt for instKey (maybe notify user somehow, flash ele)
-       - and/or maybe save the latest setting for both low and high
-         and look for them after a new inst or key setting and if not
-         there then what to do?
-         then find (nearest higher note for low and nearest lower note for the high)?
-         iff current low/high setting is diff from what the default low/high
-         would be for this key and inst?
-         - maybe this would be confusing because sometimes a user changing keys
-           would get their low/high range be set to an old value they used
-           for some other key
-      - buglet: for 6 string and root G the F is not in the key so high
-          range is F# which is 6th fret which is past the 5th which is what i want
-          other keys do the same
-          SO... this sort of thing may mean that making the ranges disregard
-          the key setting, and elsewhere set the range to be just the key
-          AND... disregarding would also get rid of the crazyness above about 
-          what to do with low/hi range that is set that is no longer valid when
-          key changes,
-          AND... if someday we set range using the staff lines or a fretboard
-          diagram, then these would also ignore the key
-
-      //
+    - add back the bass instrument 4,5,6 string range helper
     - put whole thing into web tool chain
        then konva can be used in react if that is ever needed
-    - add a tooltip/mousetip above each note saying what each one represents
+    - add a tooltip/mousetip above each note saying what each one represents(flats, sharps..)
     - add spectro like this https://www.youtube.com/watch?v=eEeUFB1iIDo
 */

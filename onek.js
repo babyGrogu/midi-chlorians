@@ -35,7 +35,7 @@ let roll, bar, beatCtr = 0;
 let quarterNote, quarterNoteFlipped, quarterNoteFlippedG, quarterNoteFlippedF,quarterNoteFlippedE, quarterNoteFlippedD, quarterNoteFlippedC, quarterNoteE, quarterNoteD, quarterNoteC, quarterNoteB ;
 let noteTotalWidth = noteSpacing + noteWidth;
 let targetX, targetZoneWidth;
-let animationVelocity = 40;
+let animationVelocity = 88; //40;
 
 
 // create staff
@@ -368,11 +368,12 @@ function findLeftMostNoteToPlay() {
   return null;
 }
 
-function notePlayedCorrectly() {
+function releaseNoteAtTarget() {
+  playedCnt = 0;
+  stopPad(findLeftMostNoteToPlay().f);
   destroyLeftMostNote();
   eightIsGreate();
   clearTimeout(padTimer);
-  if (saw1) { saw1.stop(); saw2.stop(); square.stop(); }
   if (tone) {
     beep();
   }

@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
-	<head>
-		<title>Pitch Detector & Konva</title>
+    <head>
+        <title>Pitch Detector & Konva</title>
 
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -9,17 +9,18 @@
     <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.26.0/babel.min.js"></script>
     <script src="konva8310.min.js"></script>
 
-		<script src="one.js"></script>
-		<script src="onek.js"></script>
+    <script src="one.js"></script>
+    <script src="onek.js"></script>
     <script type="text/babel" src="oner.js"></script>
-  
+
     <style>
-			#note { font-size: 46px; }
+      #note { font-size: 46px; }
       #numCorrect { font-size: 32px; }
-			#lastPlayed { font-size: 23px; }
+      #lastPlayed { font-size: 23px; }
+      input[type="number"] { width: 48px; }
     </style>
-	</head>
-	<body>
+  </head>
+  <body>
     <div><span id="pitch">--</span>Hz</div>
     <div><span id="note">--</span></div>   
     <div><span id="numCorrect">--</span></div>   
@@ -37,5 +38,5 @@
        <li> keyboard typing in a note letter is equivalent to playing that note, disregard sharps or flats when typing
      </ul>
     </div>
-	</body>
+  </body>
 <html>
