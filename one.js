@@ -71,7 +71,7 @@ let lastRandomNote = {n:-1};
 let playedCnt = 0;
 let playedCntReq = 42;
 let pitchElem, noteElem, numCorrect, detuneElem, detuneAmount, lastPlayed;
-let selectInput = 'cable'; 
+let selectInput = 'none'; 
 let loopFreq, loopsCtr, padTimer;
 let padFreqs = {};
 
@@ -192,6 +192,11 @@ function gotStream(stream) {
 
 
 function startAudioProcessing() {
+  // no listening mode
+  if (selectInput === 'none') {
+    return;
+  }
+
   getUserMedia({
     "audio": {
         "mandatory": {
@@ -373,8 +378,8 @@ function createMap() {
       });
     }
 
-    // twoNoteArray is INCLUSIVE, both notes and all in between are included
-    // to go lower give the highest note first
+    // - twoNoteArray is INCLUSIVE, both notes and all in between are included
+    // - to go lower in frequency give the highest note first
     function createNoteRange(twoNoteArray, level, lower) {
       const n1 = notes.indexOf(twoNoteArray[0]);
       const n2 = notes.indexOf(twoNoteArray[1]);
@@ -522,18 +527,33 @@ function loopPadStop() {
 // if previously played a pad at this freq then stop them
 function startPad(freq) {
   pad(freq);
+
   const stoTime = (chordOrArpg === 'chord' ? 0 : loopPlayTime);
+  let chordTones = 1; // 1 is to account for the root tone
+  if (tone3) chordTones++;
+  if (tone5) chordTones++;
+  if (tone7) chordTones++;
+  let playTone = 0;
   if (tone3) {
     const thirdFreq = calcIntervalFreq(freq, 2);
+    playTone++;
     setTimeout(() => {
       pad(thirdFreq);
-    }, (tone5 ? stoTime/3 : stoTime/2) ) ;
+    }, playTone * stoTime/chordTones ) ;
   }
   if (tone5) {
     const fifthFreq = calcIntervalFreq(freq, 4);
+    playTone++;
     setTimeout(() => {
       pad(fifthFreq);
-    }, (tone3 ? 2*stoTime/3 : stoTime/2) ) ;
+    }, playTone * stoTime/chordTones ) ;
+  }
+  if (tone7) {
+    const seventhFreq = calcIntervalFreq(freq, 6);
+    playTone++;
+    setTimeout(() => {
+      pad(seventhFreq);
+    }, playTone * stoTime/chordTones ) ;
   }
 }
 
@@ -554,6 +574,8 @@ function stopPad(freq) {
   stopFreq(thirdFreq);
   const fifthFreq = calcIntervalFreq(freq, 4);
   stopFreq(fifthFreq);
+  const seventhFreq = calcIntervalFreq(freq, 6);
+  stopFreq(seventhFreq);
 }
 
 // oops, something is wrong, stop all pads
@@ -594,8 +616,11 @@ function calcIntervalFreq(freq, distanceOfNotesInKey) {
 
 /**
   todo:
-    - add 7th tone for 7th chords
-    - add MINOR 15 scales
+    - add volume for roots, 3rds, 5ths, 7ths
+    - add higher notes 9th? 11th? for chords
+    - add natural MINOR 15 scales
+    - add melodic MINOR 15 scales
+    - add harmonic MINOR 15 scales
     - add staff and key signature on staff
     - add chromatic (12 keys) (that will change the numberOfNotesInRange settings)
       - means adding konva sharps and flats (# for sharp keys, b for flats)

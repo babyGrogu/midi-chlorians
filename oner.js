@@ -7,7 +7,8 @@ let releaseWhenHeard = false;
 let chordOrArpg = 'chord'; // play fifth when stopped at target
 let tone3 = false; // play third when stopped at target
 let tone5 = true; // play fifth when stopped at target
-let loops = 4; // num of loops
+let tone7 = false; // play seventh when stopped at target
+let loops = 2; // num of loops
 let loopPlayTime = 2345;
 let loopPauseTime = 8;
 
@@ -50,6 +51,7 @@ const CMD_SET_TONE = 'TONE';
 const CMD_SET_RELEASE_WHEN_HEARD = 'RELEASE';
 const CMD_SET_TONE3 = 'TONE3';
 const CMD_SET_TONE5 = 'TONE5';
+const CMD_SET_TONE7 = 'TONE7';
 const CMD_SET_CHORD_OR_ARPG = 'CHORD_OR_ARPG';
 const CMD_SET_LOOPS = 'LOOPS';
 const CMD_SET_LOOP_PLAY_TIME = 'LOOP_PLAY_TIME';
@@ -72,6 +74,7 @@ let initialControls = {
   releaseWhenHeard,
   tone3,
   tone5,
+  tone7,
   chordOrArpg,
   loops,
 };
@@ -179,6 +182,10 @@ function controlsReducer(state, action) {
       tone5 = action.tone5; // todo: when we get konva into react this line should go away
       action.target.blur(); // remove focus from widget so typing does not change selection
       return {...state, tone5: action.tone5};
+    case (CMD_SET_TONE7):
+      tone7 = action.tone7; // todo: when we get konva into react this line should go away
+      action.target.blur(); // remove focus from widget so typing does not change selection
+      return {...state, tone7: action.tone7};
     case (CMD_SET_LOOP_PLAY_TIME):
       loopPlayTime = action.loopPlayTime; // todo: ...
       return {...state, loopPlayTime: action.loopPlayTime};
@@ -281,7 +288,7 @@ const Controls = (props) => {
     return noteNamesInKey.map((n,i) => ( <span key={i}>{noteLabelForKey(n)} </span> ));
     //return noteNamesInKey.map((n,i) => ( <span key={i}>&nbsp;&nbsp;&nbsp;&nbsp;<input type="checkbox" id={'noteInKeyCheck' + n} value={'noteInKeyCheck' + n} onChange={e => console.log('noteInKeyChecked ' + n)} /><span>{noteLabelForKey(n)}</span></span> ));
   }
-  function listenR(e) {
+  function startIt(e) {
     audioContext = new AudioContext();
     startAudioProcessing();
     startKeyBoardListening();
@@ -370,6 +377,7 @@ const Controls = (props) => {
               input: e.currentTarget.value
             })
         }>
+          <option value="none">No Listening Mode</option>
           <option value="cable">Instrument Cable (to USB)</option>
           <option value="mic">Microphone</option>
         </select>
@@ -386,7 +394,7 @@ const Controls = (props) => {
       </div>
 
       <div>
-        <button onClick={listenR}>start listening</button>
+        <button onClick={startIt}>start</button>
       </div>
 
       <div>
@@ -447,6 +455,15 @@ const Controls = (props) => {
           })
         }/>
         <label htmlFor="tone5">fifth </label>
+
+        <input type="checkbox" id="tone7" value="tone7" checked={tone && tone7} onChange={e =>
+          dispatch({
+            command: CMD_SET_TONE7,
+            tone7: e.currentTarget.checked,
+            target: e.currentTarget,
+          })
+        }/>
+        <label htmlFor="tone7">seventh </label>
 
         <input type="number" id="loops" value={loops} onChange={e =>
           dispatch({
