@@ -43,7 +43,7 @@ const keys = [   // todo: write a loop that creates this structure?
   {label: 'Cb Major', root: notes[11]},
   // todo: add minor keys
 ];
-keys.forEach((k,i) => k.i = i);
+keys.forEach((k,i) => k.i = i); // number the keys with i
 
 const CLEF_BASS = 'bass';
 const CLEF_TREBLE = 'treble';

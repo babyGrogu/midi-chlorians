@@ -1,4 +1,4 @@
-let octEq = true;
+let octEq = false;
 let amp = false;
 let selectRangeLow = 2;
 let selectRangeHigh = 34; 
@@ -341,6 +341,8 @@ const Controls = (props) => {
         <label> highest note </label>
       </div>
 
+      <div className="vertSpacer"></div>
+
       <div>
         <input type="checkbox" id="octavesEqual" value="octavesEqual" checked={octEq} onChange={e =>
           dispatch({
@@ -390,11 +392,6 @@ const Controls = (props) => {
           })
         }/>
         <label htmlFor="amp">Send input from cable to computer audio output</label>
-
-      </div>
-
-      <div>
-        <button onClick={startIt}>start</button>
       </div>
 
       <div>
@@ -465,6 +462,8 @@ const Controls = (props) => {
         }/>
         <label htmlFor="tone7">seventh </label>
 
+        <span className="horizSpacer"></span>
+
         <input type="number" id="loops" value={loops} onChange={e =>
           dispatch({
             command: CMD_SET_LOOPS,
@@ -473,6 +472,8 @@ const Controls = (props) => {
         }/>
         <label htmlFor="loops">loop number </label>
 
+        <span className="horizSpacer"></span>
+
         <input type="number" id="loopPlayTime" value={loopPlayTime} onChange={e =>
           dispatch({
             command: CMD_SET_LOOP_PLAY_TIME,
@@ -480,6 +481,8 @@ const Controls = (props) => {
           })
         }/>
         <label htmlFor="loopPlayTime">loopPlayTime number </label>
+
+        <span className="horizSpacer"></span>
 
         <input type="number" id="loopPauseTime" value={loopPauseTime} onChange={e =>
           dispatch({
@@ -490,10 +493,18 @@ const Controls = (props) => {
         <label htmlFor="loopPauseTime">loopPauseTime number</label>
       </div>
 
+      <div className="vertSpacer"></div>
+
       <div>
         <button id="slower" onClick={() => dispatch({command: CMD_SET_SLOWER})}>Slower</button>
         <button id="faster" onClick={() => dispatch({command: CMD_SET_FASTER})}>Faster</button>
         <label> speed {controlData.velocity}</label>
+      </div>
+
+      <div className="vertSpacer"></div>
+
+      <div>
+        <button onClick={startIt}>Start</button>
       </div>
 
     </div>

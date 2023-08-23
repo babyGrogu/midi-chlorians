@@ -17,7 +17,10 @@
       #note { font-size: 46px; }
       #numCorrect { font-size: 32px; }
       #lastPlayed { font-size: 23px; }
+      .vertSpacer { padding: 8px 0 0 0; }
+      .horizSpacer { padding: 0 8px 0 0; }
       input[type="number"] { width: 48px; }
+      label { font-size: larger; }
     </style>
   </head>
   <body>
@@ -28,7 +31,7 @@
     <div><span id="lastPlayed">&nbsp;</span></div>   
     <div id="reactRoot"></div>
     <div id="konvaRoot"></div>
-    <div>
+    <div style="display: none;">
      <ul>
        <li> staff is a bass clef (not a treble clef)
        <li> if desired choose a range of notes to be shown
