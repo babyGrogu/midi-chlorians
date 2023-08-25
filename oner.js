@@ -37,7 +37,7 @@ function startKeyBoardListening() {
 //--------------------- react Controls --------------------
 'use strict';
 
-const { useState, useReducer, createElement } = React
+const { useReducer, createElement } = React
 const { createRoot } = ReactDOM;
 
 const CMD_SET_INPUT = 'INPUT';
@@ -58,6 +58,7 @@ const CMD_SET_LOOP_PLAY_TIME = 'LOOP_PLAY_TIME';
 const CMD_SET_LOOP_PAUSE_TIME = 'LOOP_PAUSE_TIME';
 const CMD_RANGE_LOW = 'RANGE_LOW';
 const CMD_RANGE_HIGH = 'RANGE_HIGH';
+const CMD_SET_PLAY_CNT_REQ = 'PLAY_CNT_REQ';
 
 
 
@@ -77,6 +78,7 @@ let initialControls = {
   tone7,
   chordOrArpg,
   loops,
+  playedCntReq,
 };
 
 let notesPerfectLowHighRange = [];
@@ -192,6 +194,9 @@ function controlsReducer(state, action) {
     case (CMD_SET_LOOP_PAUSE_TIME):
       loopPauseTime = action.loopPauseTime; // todo: ...
       return {...state, loopPauseTime: action.loopPauseTime};
+    case (CMD_SET_PLAY_CNT_REQ):
+      playedCntReq = action.playedCntReq; // todo: when we get konva into react this line...
+      return {...state, playedCntReq };
     case (CMD_SET_INST):
       // todo:
       return state;
@@ -300,6 +305,16 @@ const Controls = (props) => {
     <div>
 
       <div>
+        <input type="number" id="playedCntReq" value={playedCntReq} onChange={e =>
+          dispatch({
+            command: CMD_SET_PLAY_CNT_REQ,
+            playedCntReq: parseInt(e.currentTarget.value,10),
+          })
+        }/>
+        <label htmlFor="playedCntReq"> play count required for not to be sensed</label>
+      </div>
+
+      <div>
         <select id="selectRoot"
           value={keys.findIndex(k => k.label === controlData.key.label)}
           onChange={e =>
@@ -395,6 +410,18 @@ const Controls = (props) => {
       </div>
 
       <div>
+        <input type="checkbox" id="release" value="release" checked={releaseWhenHeard} onChange={e =>
+          dispatch({
+            command: CMD_SET_RELEASE_WHEN_HEARD,
+            release: e.currentTarget.checked,
+            target: e.currentTarget,
+          })
+        }/>
+        <label htmlFor="release">Release note at target when playCountReq met, otherwise wait until <br></br>after the "loop number" is done playing AND playCountReq IS MET AGAIN</label>
+      </div>
+
+      <div>
+        {/* todo: make the following radio / checkboxes dependant on this checkbox */}
         <input type="checkbox" id="tone" value="tone" checked={tone} onChange={e =>
           dispatch({
             command: CMD_SET_TONE,
@@ -406,17 +433,6 @@ const Controls = (props) => {
       </div>
 
       <div>
-        <input type="checkbox" id="release" value="release" checked={releaseWhenHeard} onChange={e =>
-          dispatch({
-            command: CMD_SET_RELEASE_WHEN_HEARD,
-            release: e.currentTarget.checked,
-            target: e.currentTarget,
-          })
-        }/>
-        <label htmlFor="release">Release note at target when a root note is "heard/sensed" for the required playCountReq, otherwise wait until after the "loop number" is done playing AND correct note is "heard/sensed" again</label>
-        </div>
-
-        <div>
         <input type="radio" name="chordOrArpg" id="chord" value="chord" checked={chordOrArpg === 'chord'} onChange={e =>
           dispatch({
             command: CMD_SET_CHORD_OR_ARPG,
@@ -461,9 +477,9 @@ const Controls = (props) => {
           })
         }/>
         <label htmlFor="tone7">seventh </label>
+      </div>
 
-        <span className="horizSpacer"></span>
-
+      <div>
         <input type="number" id="loops" value={loops} onChange={e =>
           dispatch({
             command: CMD_SET_LOOPS,

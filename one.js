@@ -69,7 +69,7 @@ let chooseNoteTimer = -1;
 let animationFramesCtr = 0;
 let lastRandomNote = {n:-1}; 
 let playedCnt = 0;
-let playedCntReq = 42;
+let playedCntReq = 23;
 let pitchElem, noteElem, numCorrect, detuneElem, detuneAmount, lastPlayed;
 let selectInput = 'none'; 
 let loopFreq, loopsCtr, padTimer;
