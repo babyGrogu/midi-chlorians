@@ -8,7 +8,7 @@ let stage, layer;
 
 // create our staff
 const lines = [];
-const linesAboveStaff = 3;
+const linesAboveStaff = 3; // line for C, E, G
 const lineSpacing = 16;
 const linesInStaff = 5;
 const topLine = 10;
@@ -36,6 +36,7 @@ let quarterNote, quarterNoteFlipped, quarterNoteFlippedG, quarterNoteFlippedF,qu
 let noteTotalWidth = noteSpacing + noteWidth;
 let targetX, targetZoneWidth;
 let animationVelocity = 88; //40;
+let lastRandomNote = {n:-1}; 
 
 
 // create staff
@@ -412,6 +413,19 @@ function getNumberOfNotes() {
     });
   }
   return noteCtr;
+}
+
+function chooseNote() {
+  let choosenOne = lastRandomNote;
+  // force the next random note be a different note than the previous value
+  while (choosenOne.n === lastRandomNote.n) {
+    const rand = Math.floor(Math.random()*(notesPerfectInKeyForRange.length));
+    choosenOne = notesPerfectInKeyForRange[rand];
+  }
+  lastRandomNote = choosenOne;
+
+  // add note to staff
+  renderNote(choosenOne);
 }
 
 function renderLowestKeyNotes() {

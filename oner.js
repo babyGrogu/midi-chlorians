@@ -1,3 +1,4 @@
+let inited = false;
 let octEq = false;
 let amp = false;
 let selectRangeLow = 2;
@@ -8,9 +9,9 @@ let chordOrArpg = 'chord'; // play fifth when stopped at target
 let tone3 = false; // play third when stopped at target
 let tone5 = true; // play fifth when stopped at target
 let tone7 = false; // play seventh when stopped at target
-let loops = 2; // num of loops
-let loopPlayTime = 2345;
-let loopPauseTime = 8;
+let loops = 1; // num of loops
+let loopPlayTime = 842;
+let loopPauseTime = 4;
 
 //----------------- key board listener  --------------
 function startKeyBoardListening() {
@@ -40,7 +41,7 @@ function startKeyBoardListening() {
 const { useReducer, createElement } = React
 const { createRoot } = ReactDOM;
 
-const CMD_SET_INPUT = 'INPUT';
+const CMD_SET_INPUT = 'LISTENING';
 const CMD_SET_OCTEQ = 'OCTEQ';
 const CMD_SET_AMP = 'AMP';
 const CMD_SET_INST = 'INST';
@@ -63,7 +64,7 @@ const CMD_SET_PLAY_CNT_REQ = 'PLAY_CNT_REQ';
 
 
 let initialControls = {
-  input: selectInput,
+  listening,
   octEq,
   amp,
   instrument: INST_BASS4,
@@ -148,7 +149,7 @@ function controlsReducer(state, action) {
       action.target.blur();
       return newState;
     case (CMD_SET_INPUT):
-      return {...state, input: action.input};
+      return {...state, listening: action.listening};
     case (CMD_SET_OCTEQ):
       octEq = action.octEq; // todo: ...
       return {...state, octEq: action.octEq};
@@ -206,7 +207,7 @@ function controlsReducer(state, action) {
 
 const Controls = (props) => {
   const [controlData, dispatch] = useReducer(controlsReducer, initialControls);
-  selectInput = controlData.input;
+  listening = controlData.listening;
   loops = controlData.loops;
 
   function noteLabelForRange(str) {
@@ -293,11 +294,22 @@ const Controls = (props) => {
     return noteNamesInKey.map((n,i) => ( <span key={i}>{noteLabelForKey(n)} </span> ));
     //return noteNamesInKey.map((n,i) => ( <span key={i}>&nbsp;&nbsp;&nbsp;&nbsp;<input type="checkbox" id={'noteInKeyCheck' + n} value={'noteInKeyCheck' + n} onChange={e => console.log('noteInKeyChecked ' + n)} /><span>{noteLabelForKey(n)}</span></span> ));
   }
-  function startIt(e) {
+  function initIt(e) {
     audioContext = new AudioContext();
     startAudioProcessing();
     startKeyBoardListening();
     eightIsGreate();
+  }
+  function startIt(e) {
+    if (!inited) {
+      inited = true;
+      initIt(e);
+    }
+    animateRoll.start();
+    e.target.blur(); // removes focus
+  }
+  function stopIt(e) {
+    animateRoll.stop();
     e.target.blur(); // removes focus
   }
 
@@ -388,25 +400,27 @@ const Controls = (props) => {
       */}
 
       <div>
-        <select id="selectInput" onChange={e =>
+        <select id="listening" onChange={e =>
             dispatch({
               command: CMD_SET_INPUT,
-              input: e.currentTarget.value
+              listening: e.currentTarget.value
             })
         }>
-          <option value="none">No Listening Mode</option>
+          <option value="none">No Listening</option>
           <option value="cable">Instrument Cable (to USB)</option>
           <option value="mic">Microphone</option>
         </select>
-        <label> input</label>
+        <label> listening mode </label>
 
-        <input type="checkbox" id="amp" value="amp" disabled={selectInput === 'mic'} 
+        <div>
+          <input type="checkbox" id="amp" value="amp" disabled={listening === 'mic'} 
           checked={amp} onChange={e => dispatch({
             command: CMD_SET_AMP,
             amp: e.currentTarget.checked,
           })
         }/>
-        <label htmlFor="amp">Send input from cable to computer audio output</label>
+          <label htmlFor="amp">Send input from USB cable to computer audio output</label>
+        </div>
       </div>
 
       <div>
@@ -429,7 +443,7 @@ const Controls = (props) => {
             target: e.currentTarget,
           })
         }/>
-        <label htmlFor="tone">Hear sound of chord / arpeggio at target </label>
+        <label htmlFor="tone">Play sound of chord / arpeggio at target </label>
       </div>
 
       <div>
@@ -521,6 +535,7 @@ const Controls = (props) => {
 
       <div>
         <button onClick={startIt}>Start</button>
+        <button onClick={stopIt}>Stop</button>
       </div>
 
     </div>

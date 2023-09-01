@@ -60,6 +60,7 @@ const LOWER24 = Math.pow(1/2, 1/24);
 const HIGHER24 = Math.pow(2, 1/24);
 const noteMap = [];
 const searchMiddle = 20;
+const NONE = 'none';
 
 let clef = CLEF_BASS;
 let inst = INST_BASS4;
@@ -67,11 +68,10 @@ let keySteps = KEY_MAJOR_HALF_STEPS;
 let key = keys[0]; // 0 = C major
 let chooseNoteTimer = -1;
 let animationFramesCtr = 0;
-let lastRandomNote = {n:-1}; 
 let playedCnt = 0;
 let playedCntReq = 23;
 let pitchElem, noteElem, numCorrect, detuneElem, detuneAmount, lastPlayed;
-let selectInput = 'none'; 
+let listening = NONE; 
 let loopFreq, loopsCtr, padTimer;
 let padFreqs = {};
 
@@ -107,7 +107,7 @@ let instruments = {
 let notesPerfect, noteNamesInKey, notesPerfectInKeyForRange=[], notesMinimum, notesLow, notesHigh;
 
 
-createMap();
+createNoteMap();
 
 // onload handler has to be at top
 window.onload = function () {
@@ -140,7 +140,7 @@ function getUserMedia(dictionary, callback) {
 }
 
 function gotStreamWrapper(stream) {
-  if (selectInput === 'mic') {
+  if (listening === 'mic') {
     // proceed to the old code
     gotStream(stream);
     return;
@@ -193,7 +193,7 @@ function gotStream(stream) {
 
 function startAudioProcessing() {
   // no listening mode
-  if (selectInput === 'none') {
+  if (listening === NONE) {
     return;
   }
 
@@ -355,11 +355,11 @@ function updatePitch() {
 
 //--------------------------------------------------------------
 
-function createMap() {
+function createNoteMap() {
   // todo: add text field for a4 frequencies
   //const a4Freq = document.getElementById('frequency').value;
   const a4Freq = 440;
-  function createAup(a4Freq) {
+  function createBasedOnA4Freq(a4Freq) {
 
     function roundTo(n, digits) {
         if (digits === undefined) { digits = 0; }
@@ -422,8 +422,7 @@ function createMap() {
 
   }
 
-  createAup(a4Freq);
-
+  createBasedOnA4Freq(a4Freq);
 
   notesPerfect = noteMap.filter(item => item.x === PERFECT);
 
@@ -433,20 +432,6 @@ function createMap() {
   notesMinimum = noteMap.filter(item => item.x === MINIMUM);
   notesLow = notesMinimum.slice(0,searchMiddle).reverse();
   notesHigh = notesMinimum.slice(searchMiddle);
-}
-
-function chooseNote() {
-
-  let choosenOne = lastRandomNote;
-  // force the next random note be a different note than the previous value
-  while (choosenOne.n === lastRandomNote.n) {
-    const rand = Math.floor(Math.random()*(notesPerfectInKeyForRange.length));
-    choosenOne = notesPerfectInKeyForRange[rand];
-  }
-  lastRandomNote = choosenOne;
-
-  // add note to staff
-  renderNote(choosenOne);
 }
 
 // TODO: need to set up a structure that for each frequeency it has a set
@@ -511,7 +496,7 @@ function loopPadStart(f) {
 function loopPadRestart() {
   startPad(loopFreq);
   padTimer = setTimeout(() => {
-    loopPadStop(loopFreq);
+    loopPadStop();
   },loopPlayTime);
 }
 function loopPadStop() {
@@ -521,6 +506,8 @@ function loopPadStop() {
     padTimer = setTimeout(() => {
       loopPadRestart();
     },loopPauseTime);
+  } else if (listening === NONE) {
+    releaseNoteAtTarget();
   }
 }
 
@@ -616,9 +603,14 @@ function calcIntervalFreq(freq, distanceOfNotesInKey) {
 
 /**
   todo:
+    - in 'no listening mode' make keep roll moving and 'release note' checkbox disabled
+    - add control for 'pads' to be an octave higher for easier recognition
+      (this would be the normal frequencies for bass clef on the grand staff)
     - add volume for roots, 3rds, 5ths, 7ths
+    - add notes higher on the bass clef (beyond fret 12)
+    - add a tooltip/mousetip above each note saying what each one represents(flats, sharps..)
     - add higher notes 9th? 11th? for chords
-    - add natural MINOR 15 scales
+    - add natural MINOR 15 scales (back 3 half steps from major, that is relative/natural minor)
     - add melodic MINOR 15 scales
     - add harmonic MINOR 15 scales
     - add staff and key signature on staff
