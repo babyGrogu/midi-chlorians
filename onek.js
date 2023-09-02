@@ -281,7 +281,7 @@ function createAndCacheElements() {
   bar.cache();
 }
 
-// note relates to values in noteMapPerfects
+// note relates to values in noteMapActuals
 function renderNote(note) {
   // get noteIndex to staff line mapping given the instrument, and key
   let noteK;
@@ -415,12 +415,12 @@ function getNumberOfNotes() {
   return noteCtr;
 }
 
-function chooseNote() {
+function chooseAndRenderNote() {
   let choosenOne = lastRandomNote;
   // force the next random note be a different note than the previous value
   while (choosenOne.n === lastRandomNote.n) {
-    const rand = Math.floor(Math.random()*(notesPerfectInKeyForRange.length));
-    choosenOne = notesPerfectInKeyForRange[rand];
+    const rand = Math.floor(Math.random()*(notesActualInKeyForRange.length));
+    choosenOne = notesActualInKeyForRange[rand];
   }
   lastRandomNote = choosenOne;
 
@@ -429,25 +429,24 @@ function chooseNote() {
 }
 
 function renderLowestKeyNotes() {
-  if (audioContext === null) return;
+  //if (audioContext === null) return;
   //console.log('   --  test start   --');
   destroyAllNotes();
-  const firstNoteOfKeyIndex =  notesPerfectInKeyForRange.findIndex(n => n.n === key.root);
+  const firstNoteOfKeyIndex =  notesActualInKeyForRange.findIndex(n => n.n === rcs.key.root);
 
-  const testNotes = notesPerfectInKeyForRange.slice(firstNoteOfKeyIndex,firstNoteOfKeyIndex+8);
+  const testNotes = notesActualInKeyForRange.slice(firstNoteOfKeyIndex,firstNoteOfKeyIndex+8);
   testNotes.forEach(n => {
     renderNote(n);
   });
-  if (! animateRoll.isRunning()) {
-    animateRoll.start();
-  }
-  //console.log('   --  test done   --');
+  //if (! animateRoll.isRunning()) {
+  //  animateRoll.start();
+  //}
 }
 
 function eightIsGreate() {
   // if fewer than 8 notes, create another one
   for (let i=getNumberOfNotes(); i < 8; i++) {
-    chooseNote();
+    chooseAndRenderNote();
     if (! animateRoll.isRunning()) {
       animateRoll.start();
     }
@@ -461,21 +460,19 @@ for (let i=0,j=0; i<20; i++,j=(j+1)%7) {
   const staffLine = staffLines[j];
   let h = staffLine + '#' + octaveLevel;
   nlm[h] = i;
-  //console.log('h: ' + h + '=' + i);
 
   // line order here is important to change the level at B#
   if (staffLine + '#' === 'B#') { /*console.log('  lower level' );*/ octaveLevel--; }  // good for sharps
 
   h = staffLine + octaveLevel;
   nlm[h] = i;
-  //console.log('h: ' + h + '=' + i);
 
   h = staffLine + 'b' + octaveLevel;
   nlm[h] = i;
-  //console.log('h: ' + h + '=' + i);
 }
 
 function getStaffLine(note) {
+  let key = rcs.key;
   // handle special corner cases first
   if (
     // in key F# Major or C# Major note F=E# is called E#
@@ -533,7 +530,7 @@ const animateRoll = new Konva.Animation(function (frame) {
     if (leftMostGroupX + rollX <= targetX - targetZoneWidth/2) {
       animateRoll.stop();
       if (tone) {
-        loopPadStart(leftMostGroup.attrs.note.f);
+        loopPadStart(leftMostGroup.attrs.note.i);
       }
       return;
     }

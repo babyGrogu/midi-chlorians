@@ -54,24 +54,23 @@ const INST_GUITAR = 'guitar';
 const INST_PIANO = 'piano';
 const KEY_MAJOR_HALF_STEPS = [2,2,1,2,2,2,1];
 const KEY_MINOR_HALF_STEPS = [2,1,2,2,1,2,2]
-const PERFECT = 'perfect';
+const ACTUAL = 'actual';
 const MINIMUM = 'minimum';
 const LOWER24 = Math.pow(1/2, 1/24);
 const HIGHER24 = Math.pow(2, 1/24);
 const noteMap = [];
 const searchMiddle = 20;
 const NONE = 'none';
+const animateSpeed = (m) => animationVelocity = Math.round(animationVelocity * m);
 
 let clef = CLEF_BASS;
 let inst = INST_BASS4;
 let keySteps = KEY_MAJOR_HALF_STEPS;
-let key = keys[0]; // 0 = C major
 let chooseNoteTimer = -1;
 let animationFramesCtr = 0;
 let playedCnt = 0;
 let playedCntReq = 23;
 let pitchElem, noteElem, numCorrect, detuneElem, detuneAmount, lastPlayed;
-let listening = NONE; 
 let loopFreq, loopsCtr, padTimer;
 let padFreqs = {};
 
@@ -80,31 +79,31 @@ let instruments = {
   [INST_BASS4]: {
     text: 'bass (4 string, EADG)',
     //strings: ['E1','A1','D2','G2'],
-    rangePerfects: [7, 46],
+    rangeActual: [7, 46],
   },
   [INST_BASS5]: {
     text: 'bass (5 string, BEADG)',
     //strings: ['B0','E1','A1','D2','G2'],
-    rangePerfects: [2, 46],
+    rangeActual: [2, 46],
   },
   [INST_BASS6]: {
     text: 'bass (6 string, BEADGC)',
     //strings: ['B0','E1','A1','D2','G2', 'C3'],
-    rangePerfects: [2, 51],
+    rangeActual: [2, 51],
   },
   [INST_GUITAR]: {
     text: 'guitar (6 string, EADGBE)',
     //strings: ['E2','A2','D3','G3','B4', 'E4'],
-    rangePerfects: [19, 67],// not sure of these values
+    rangeActual: [19, 67],
   },
   [INST_PIANO]: {
     text: 'piano (88 keys)',
-    rangePerfects: [0, 88],// not sure of these values
+    rangeActual: [0, 87],
   },
 };
 
 // arrays of notes
-let notesPerfect, noteNamesInKey, notesPerfectInKeyForRange=[], notesMinimum, notesLow, notesHigh;
+let notesActual, noteNamesInKey, notesActualInKeyForRange=[], notesMinimum, notesLow, notesHigh;
 
 
 createNoteMap();
@@ -140,7 +139,7 @@ function getUserMedia(dictionary, callback) {
 }
 
 function gotStreamWrapper(stream) {
-  if (listening === 'mic') {
+  if (rcs.listening === 'mic') {
     // proceed to the old code
     gotStream(stream);
     return;
@@ -178,7 +177,7 @@ function gotStream(stream) {
     analyser.fftSize = 2048;
     mediaStreamSource.connect( analyser );
 
-    if (amp) {
+    if (rcs.amp) {
       analyser.connect(audioContext.destination);
     }
 
@@ -193,7 +192,7 @@ function gotStream(stream) {
 
 function startAudioProcessing() {
   // no listening mode
-  if (listening === NONE) {
+  if (rcs.listening === NONE) {
     return;
   }
 
@@ -322,7 +321,7 @@ function updatePitch() {
 
       const leftMostNote = findLeftMostNoteToPlay();
       if (leftMostNote && noteHeard.n === leftMostNote.n &&
-          (octEq ? true : noteHeard.l === leftMostNote.l)) {
+          (rcs.octEq ? true : noteHeard.l === leftMostNote.l)) {
         if (playedCnt >= playedCntReq) {
           lastPlayed.innerHTML = 'Correctly played: ' + noteHeard.n +
             ' ' + leftMostNote.l + '=' + noteHeard.l;
@@ -374,7 +373,7 @@ function createNoteMap() {
         n: note,
         l: level,
         f: roundTo(freq,2),
-        x: (noteOrNot ? PERFECT : MINIMUM )
+        x: (noteOrNot ? ACTUAL : MINIMUM )
       });
     }
 
@@ -400,34 +399,31 @@ function createNoteMap() {
     }
 
     let lastFreq = a4Freq;
+    // going high to low from middle A4
     createNoteRange(['A','C=B#'], 4, true);
     createNoteRange(['B=Cb','C=B#'], 3, true);
     createNoteRange(['B=Cb','C=B#'], 2, true);
     createNoteRange(['B=Cb','C=B#'], 1, true);
+    // piano low note is A0=27.50Hz
     createNoteRange(['B=Cb','A'], 0, true);
 
     noteMap.reverse();
+    // going low to high above middle A4
     lastFreq = a4Freq * HIGHER24;
     createNoteRange(['Bb/A#','B=Cb'], 4, false);
-    // either just guitars
-    createNoteRange(['C=B#','E=Fb'], 5, false);
-
-    // or piano range is A0=27.50Hz to C8=4186Hz
-    //createNoteRange(['C=B#','B=Cb'], 5, false);
-    //createNoteRange(['C=B#','B=Cb'], 6, false);
-    //createNoteRange(['C=B#','B=Cb'], 7, false);
-    //createNoteRange(['C=B#','C=B#'], 8, false);
-
-    //addNote('X', 'X', lastFreq*HIGHER24, false);
-
+    createNoteRange(['C=B#','B=Cb'], 5, false);
+    createNoteRange(['C=B#','B=Cb'], 6, false);
+    createNoteRange(['C=B#','B=Cb'], 7, false);
+    // piano high note is C8=4186Hz
+    createNoteRange(['C=B#','C=B#'], 8, false);
   }
 
   createBasedOnA4Freq(a4Freq);
 
-  notesPerfect = noteMap.filter(item => item.x === PERFECT);
+  notesActual = noteMap.filter(item => item.x === ACTUAL);
 
-  // add noteIndex 'i' value to each perfect entry
-  notesPerfect.forEach((n, i) => n.i = i);
+  // add noteIndex 'i' value to each actual entry
+  notesActual.forEach((n, i) => n.i = i);
 
   notesMinimum = noteMap.filter(item => item.x === MINIMUM);
   notesLow = notesMinimum.slice(0,searchMiddle).reverse();
@@ -487,9 +483,13 @@ function pad(freq) {
   padFreqs[freq] = [saw1, saw2, square];
 }
 
-function loopPadStart(f) {
+function loopPadStart(notesActualIndex) {
+  if (rcs.octHigher) {
+    notesActualIndex = notesActualIndex + 12;
+  }
+  let f = notesActual[notesActualIndex].f;
   stopPad(f);
-  loopsCtr = loops;
+  loopsCtr = rcs.loops;
   loopFreq = f;
   loopPadRestart();
 }
@@ -497,7 +497,7 @@ function loopPadRestart() {
   startPad(loopFreq);
   padTimer = setTimeout(() => {
     loopPadStop();
-  },loopPlayTime);
+  }, rcs.loopPlayTime);
 }
 function loopPadStop() {
   stopPad(loopFreq);
@@ -505,8 +505,8 @@ function loopPadStop() {
   if (loopsCtr > 0) {
     padTimer = setTimeout(() => {
       loopPadRestart();
-    },loopPauseTime);
-  } else if (listening === NONE) {
+    }, rcs.loopPauseTime);
+  } else if (rcs.listening === NONE) {
     releaseNoteAtTarget();
   }
 }
@@ -515,27 +515,27 @@ function loopPadStop() {
 function startPad(freq) {
   pad(freq);
 
-  const stoTime = (chordOrArpg === 'chord' ? 0 : loopPlayTime);
+  const stoTime = (rcs.chordOrArpg === 'chord' ? 0 :  rcs.loopPlayTime);
   let chordTones = 1; // 1 is to account for the root tone
-  if (tone3) chordTones++;
-  if (tone5) chordTones++;
-  if (tone7) chordTones++;
+  if (rcs.tone3) chordTones++;
+  if (rcs.tone5) chordTones++;
+  if (rcs.tone7) chordTones++;
   let playTone = 0;
-  if (tone3) {
+  if (rcs.tone3) {
     const thirdFreq = calcIntervalFreq(freq, 2);
     playTone++;
     setTimeout(() => {
       pad(thirdFreq);
     }, playTone * stoTime/chordTones ) ;
   }
-  if (tone5) {
+  if (rcs.tone5) {
     const fifthFreq = calcIntervalFreq(freq, 4);
     playTone++;
     setTimeout(() => {
       pad(fifthFreq);
     }, playTone * stoTime/chordTones ) ;
   }
-  if (tone7) {
+  if (rcs.tone7) {
     const seventhFreq = calcIntervalFreq(freq, 6);
     playTone++;
     setTimeout(() => {
@@ -588,30 +588,61 @@ function beep() {
 // among noteNamesInKey
 function calcIntervalFreq(freq, distanceOfNotesInKey) {
     // get index of note for loopFreq and get note
-    const indexOfRoot = notesPerfect.findIndex(n => n.f === freq);
-    const noteOfRoot = notesPerfect[indexOfRoot];
+    const indexOfRoot = notesActual.findIndex(n => n.f === freq);
+    const noteOfRoot = notesActual[indexOfRoot];
     if (noteOfRoot === -1) return -1;
     // from that note name find the note the distance away
     const index = noteNamesInKey.findIndex(n => n === noteOfRoot.n);
     // index of it's fifth note
     const indexOfDistancedNote = (index + distanceOfNotesInKey) % noteNamesInKey.length;
     const noteName = noteNamesInKey[indexOfDistancedNote];
-    const distancedNoteIndex = notesPerfect.findIndex(n => n.i > indexOfRoot && n.n === noteName);
+    const distancedNoteIndex = notesActual.findIndex(n => n.i > indexOfRoot && n.n === noteName);
     // return the frequency
-    return notesPerfect[distancedNoteIndex].f;
+    return notesActual[distancedNoteIndex].f;
 }
+
+function initIt() {
+  audioContext = new AudioContext();
+  startAudioProcessing();
+  startKeyBoardListening();
+  eightIsGreate();
+}
+
+function startIt(inited) {
+  if (!inited) {
+    initIt();
+  }
+  animateRoll.start();
+}
+
+function stopIt() {
+  animateRoll.stop();
+}
+
+function startKeyBoardListening() {
+  document.addEventListener('keyup', evt => {
+    if (evt.key && evt.key === ' ') {
+      loopPadRestart();
+    }
+    else if (evt.key) {
+      const leftMostNote = findLeftMostNoteToPlay();
+      if (leftMostNote && leftMostNote.n.toLowerCase().indexOf(evt.key) > -1) {
+        lastPlayed.innerHTML = 'Correctly keyed: ' + leftMostNote.n;
+        releaseNoteAtTarget();
+      }
+    }
+  });
+}
+
 
 /**
   todo:
-    - in 'no listening mode' make keep roll moving and 'release note' checkbox disabled
-    - add control for 'pads' to be an octave higher for easier recognition
-      (this would be the normal frequencies for bass clef on the grand staff)
     - add volume for roots, 3rds, 5ths, 7ths
+    - add natural MINOR 15 scales (back 3 half steps from major, that is relative/natural minor)
+    - add melodic MINOR 15 scales
     - add notes higher on the bass clef (beyond fret 12)
     - add a tooltip/mousetip above each note saying what each one represents(flats, sharps..)
     - add higher notes 9th? 11th? for chords
-    - add natural MINOR 15 scales (back 3 half steps from major, that is relative/natural minor)
-    - add melodic MINOR 15 scales
     - add harmonic MINOR 15 scales
     - add staff and key signature on staff
     - add chromatic (12 keys) (that will change the numberOfNotesInRange settings)
@@ -621,6 +652,5 @@ function calcIntervalFreq(freq, distanceOfNotesInKey) {
     - add back the bass instrument 4,5,6 string range helper
     - put whole thing into web tool chain
        then konva can be used in react if that is ever needed
-    - add a tooltip/mousetip above each note saying what each one represents(flats, sharps..)
     - add spectro like this https://www.youtube.com/watch?v=eEeUFB1iIDo
 */
