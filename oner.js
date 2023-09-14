@@ -8,10 +8,10 @@ const CMD_SET_INPUT = 'LISTENING';
 const CMD_SET_OCTEQ = 'OCT_EQ';
 const CMD_SET_OCT_HIGHER = 'OCT_HIGHER';
 const CMD_SET_AMP = 'AMP';
+const CMD_SET_HIDE = 'HIDE';
 const CMD_SET_INST = 'INST';
 const CMD_SET_KEY = 'KEY';
-const CMD_SET_SLOWER = 'SLOWER';
-const CMD_SET_FASTER = 'FASTER';
+const CMD_SET_VELOCITY = 'VELOCITY';
 const CMD_SET_TONE = 'TONE';
 const CMD_SET_RELEASE_WHEN_HEARD = 'RELEASE';
 const CMD_SET_TONE3 = 'TONE3';
@@ -25,6 +25,7 @@ const CMD_RANGE_LOW = 'RANGE_LOW';
 const CMD_RANGE_HIGH = 'RANGE_HIGH';
 const CMD_SET_PLAY_CNT_REQ = 'PLAY_CNT_REQ';
 
+const changeAnimationVelocity = (m) => Math.round(rcs.animationVelocity * m);
 
 let rcs = {}; // reducer controlled state
 let notesActualLowHighRange = [];
@@ -34,11 +35,12 @@ let initialReducerControlledState = {
   octEq: false,
   octHigher: false,
   amp: false,
-  instrument: INST_BASS4,
+  hide: true,
+  //instrument: INST_BASS4,
   key: keys[0], // 0 = C major
-  rangeLow: 7,  // value of actual note's  .i for BASS4
-  rangeHigh: 34, // value of actual note's  .i for BASS4
-  velocity: animationVelocity,
+  rangeLow: 7,  // value of notesActual for BASS4
+  rangeHigh: 34, // value of notesActual for BASS4
+  animationVelocity: 420,
   tone: true, // play tone when stopped at target
   releaseWhenHeard: false,
   tone3: false, // play the third
@@ -46,9 +48,9 @@ let initialReducerControlledState = {
   tone7: false, // play the seventh
   chordOrArpg: 'chord', // the selected tones 3,5,7 as a chord or as an arpegio
   loops: 1,
-  loopPlayTime: 842,
-  loopPauseTime: 4,
-  playedCntReq,
+  loopPlayTime: 800,
+  loopPauseTime: 200,
+  heardCntReq: 23,
 };
 
 
@@ -209,44 +211,42 @@ function controlsReducer(state, action) {
       action.target.blur(); // remove focus from widget so typing does not change selection
       return {...state, octEq: action.octEq};
     case (CMD_SET_OCT_HIGHER):
-      action.target.blur(); // remove focus from widget so typing does not change selection
+      action.target.blur();
       return {...state, octHigher: action.octHigher};
     case (CMD_SET_AMP):
+      action.target.blur();
       return {...state, amp: action.amp};
-    case (CMD_SET_SLOWER):
-      animateSpeed(0.95);
-      return {...state, velocity: animationVelocity};
-    case (CMD_SET_FASTER):
-      animateSpeed(1.05);
-      return {...state, velocity: animationVelocity};
+    case (CMD_SET_HIDE):
+      action.target.blur();
+      return {...state, hide: action.hide};
+    case (CMD_SET_VELOCITY):
+      return {...state, animationVelocity: action.vel};
     case (CMD_SET_TONE):
-      action.target.blur(); // remove focus from widget so typing does not change selection
+      action.target.blur();
       return {...state, tone: action.tone};
     case (CMD_SET_RELEASE_WHEN_HEARD):
-      action.target.blur(); // remove focus from widget so typing does not change selection
+      action.target.blur();
       return {...state, releaseWhenHeard: action.releaseWhenHeard };
     case (CMD_SET_CHORD_OR_ARPG):
-      chordOrArpg = action.chordOrArpg; // todo: ... into react this line should go away
-      action.target.blur(); // remove focus from widget so typing does not change selection
-      return {...state, chordOrArpg };
+      action.target.blur();
+      return {...state, chordOrArpg: action.chordOrArpg };
     case (CMD_SET_LOOPS):
       return {...state, loops: action.loops};
     case (CMD_SET_TONE3):
-      action.target.blur(); // remove focus from widget so typing does not change selection
+      action.target.blur();
       return {...state, tone3: action.tone3};
     case (CMD_SET_TONE5):
-      action.target.blur(); // remove focus from widget so typing does not change selection
+      action.target.blur();
       return {...state, tone5: action.tone5};
     case (CMD_SET_TONE7):
-      action.target.blur(); // remove focus from widget so typing does not change selection
+      action.target.blur();
       return {...state, tone7: action.tone7};
     case (CMD_SET_LOOP_PLAY_TIME):
       return {...state, loopPlayTime: action.loopPlayTime};
     case (CMD_SET_LOOP_PAUSE_TIME):
       return {...state, loopPauseTime: action.loopPauseTime};
     case (CMD_SET_PLAY_CNT_REQ):
-      playedCntReq = action.playedCntReq; // todo: when we get konva into react this line...
-      return {...state, playedCntReq };
+      return {...state, heardCntReq: action.heardCntReq };
     case (CMD_SET_INST):
       // todo:
       return state;
@@ -322,19 +322,20 @@ const Controls = (props) => {
       </div>
 
       <div>
-        <input type="number" id="playedCntReq" value={rcs.playedCntReq} disabled={rcs.listening === NONE} onChange={e =>
+        <input id="heardCntReq" type="range" value={rcs.heardCntReq} disabled={rcs.listening === NONE} min="4" max="100" onChange={e =>
           dispatch({
             command: CMD_SET_PLAY_CNT_REQ,
-            playedCntReq: parseInt(e.currentTarget.value,10),
+            heardCntReq: parseInt(e.currentTarget.value,10),
           })
         }/>
-        <label htmlFor="playedCntReq"> Play count required for not to be sensed</label>
+        <label htmlFor="heardCntReq">{rcs.heardCntReq} Heard/sensed count required for note to be sensed</label>
       </div>
       <div>
         <input type="checkbox" id="octavesEqual" checked={rcs.octEq} disabled={rcs.listening === NONE}  onChange={e =>
           dispatch({
             command: CMD_SET_OCTEQ,
             octEq: e.currentTarget.checked,
+            target: e.currentTarget,
           })
         }/>
         <label htmlFor="octavesEqual">Octave notes are treated as equal when played</label>
@@ -347,19 +348,26 @@ const Controls = (props) => {
             target: e.currentTarget,
           })
         }/>
-        <label htmlFor="releaseWhenHeard">Release note at target when playCountReq met, otherwise wait until <br></br>after the "loop number" is done playing AND playCountReq IS MET AGAIN</label>
+        <label htmlFor="releaseWhenHeard">Release note at target when heard/sensed count met, otherwise wait until <br></br>after the "loop number" is done playing AND playCountReq IS MET AGAIN</label>
       </div>
-
-      <div className="vertSpacer"></div>
-
       <div>
-        <input type="checkbox" id="amp" checked={rcs.amp} disabled={rcs.listening === 'mic'} 
-          checked={rcs.amp} onChange={e => dispatch({
+        <input type="checkbox" id="amp" checked={rcs.amp} checked={rcs.amp}
+          disabled={rcs.listening === NONE} onChange={e => dispatch({
             command: CMD_SET_AMP,
             amp: e.currentTarget.checked,
+            target: e.currentTarget,
           })
         }/>
         <label htmlFor="amp"> Send input from USB cable to computer audio output</label>
+      </div>
+      <div>
+        <input type="checkbox" id="hide" checked={rcs.hide} onChange={e => dispatch({
+            command: CMD_SET_HIDE,
+            hide: e.currentTarget.checked,
+            target: e.currentTarget,
+          })
+        }/>
+        <label htmlFor="hide"> Hide notes until note is released </label>
       </div>
 
       <div className="vertSpacer"></div>
@@ -444,41 +452,44 @@ const Controls = (props) => {
 
       <div>
         <span className="horizSpacer"></span>
-        <input type="number" id="loops" value={rcs.loops} onChange={e =>
+        <input id="loops" type="range" value={rcs.loops} min="1" max="100" onChange={e =>
           dispatch({
             command: CMD_SET_LOOPS,
             loops: parseInt(e.currentTarget.value,10),
           })
         }/>
-        <label htmlFor="loops"> loop number </label>
+        <label htmlFor="loops">{rcs.loops} loops</label>
 
         <span className="horizSpacer"></span>
 
-        <input type="number" id="loopPlayTime" value={rcs.loopPlayTime} onChange={e =>
+        <input id="loopPlayTime" type="range" value={rcs.loopPlayTime} min="100" max="5000"onChange={e =>
           dispatch({
             command: CMD_SET_LOOP_PLAY_TIME,
             loopPlayTime: parseInt(e.currentTarget.value,10),
           })
-        }/>
-        <label htmlFor="loopPlayTime"> loopPlayTime number </label>
+        } step="100"/>
+        <label htmlFor="loopPlayTime">{rcs.loopPlayTime} loopPlayTime</label>
 
         <span className="horizSpacer"></span>
 
-        <input type="number" id="loopPauseTime" value={rcs.loopPauseTime} onChange={e =>
+        <input id="loopPauseTime" type="range" value={rcs.loopPauseTime} min="100" max="5000" onChange={e =>
           dispatch({
             command: CMD_SET_LOOP_PAUSE_TIME,
             loopPauseTime: parseInt(e.currentTarget.value,10),
           })
-        }/>
-        <label htmlFor="loopPauseTime"> loopPauseTime number</label>
+        } step="100"/>
+        <label htmlFor="loopPauseTime">{rcs.loopPauseTime} loopPauseTime</label>
       </div>
 
       <div className="vertSpacer"></div>
 
       <div>
-        <button id="slower" onClick={() => dispatch({command: CMD_SET_SLOWER})}>Slower</button>
-        <button id="faster" onClick={() => dispatch({command: CMD_SET_FASTER})}>Faster</button>
-        <label> speed {rcs.velocity}</label>
+        <input id="velocity" type="range" value={rcs.animationVelocity} min="10" max="800" onChange={e =>
+          dispatch({
+            command: CMD_SET_VELOCITY,
+            vel: parseInt(e.currentTarget.value,10),
+          })} />
+        <label>{rcs.animationVelocity} staff note speed </label>
       </div>
 
       <div className="vertSpacer"></div>

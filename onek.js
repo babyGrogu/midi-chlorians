@@ -3,7 +3,7 @@
 let margin = 8;
 let width = window.innerWidth-(2*margin);
 //let height = window.innerHeight;
-let height = 170;
+let height = 220;
 let stage, layer;
 
 // create our staff
@@ -11,31 +11,35 @@ const lines = [];
 const linesAboveStaff = 3; // line for C, E, G
 const lineSpacing = 16;
 const linesInStaff = 5;
-const topLine = 10;
+const topLine = 20;
 
 const noteWidth = 48;
 const noteSpacing = 32;
-const noteRadius = 4;
+const noteTotalWidth = noteSpacing + noteWidth;
+const noteRadiusX = 6;
+const noteRadiusY = 8;
+const noteStrokeWidth = 3;
 const lineStrokeWidth = 2;
 const lineStrokeColor = 'black';
 const noteColor = 'black';
 const staffColor = 'green';
-const noteStrokeWidth = 3;
-const noteRadiusY = 8;
 const staffLineSegmentLength = noteRadiusY*2;
 const noteStemSpacing = 3; // in units of the lineSpacing variable
+const targetPercent = 33;
+const numOfNotes = 12;
 
 // the x values at which notes are created and destroyed
-const noteCreateX = width * .8;
+const noteCreateX = width * .9;
 const noteDestroyX = width * .1;
 
-const NOTE = 'note';
-let roll, bar, beatCtr = 0;
+const NOTE = 'NOTE';
+const NOTE_PLAYED = 'NOTE_PLAYED';
+const TYPE = 'TYPE';
+const TYPE_NOTE = 'TYPE_NOTE';
+let roll, measure, hiddenTic, beatCtr = 0;
 
-let quarterNote, quarterNoteFlipped, quarterNoteFlippedG, quarterNoteFlippedF,quarterNoteFlippedE, quarterNoteFlippedD, quarterNoteFlippedC, quarterNoteE, quarterNoteD, quarterNoteC, quarterNoteB ;
-let noteTotalWidth = noteSpacing + noteWidth;
+let quarterNote, quarterNoteFlipped, quarterNoteFlippedG, quarterNoteFlippedF,quarterNoteFlippedE, quarterNoteFlippedD, quarterNoteFlippedC, quarterNoteE, quarterNoteD, quarterNoteC, quarterNoteB, tooltip ;
 let targetX, targetZoneWidth;
-let animationVelocity = 88; //40;
 let lastRandomNote = {n:-1}; 
 
 
@@ -66,12 +70,13 @@ function initKonva() {
     layer.add(line);
   };
 
-  targetX = width * .5;
+  targetX = width * targetPercent/100;
   targetZoneWidth = width * .02;
   const targetColor = 'green';
+  const targetHeight = lineSpacing * 10 + 2 * noteRadiusY;
   const target = new Konva.Line({
-    points: [targetX, topLine,
-             targetX, topLine + lineSpacing*10],
+    points: [targetX, topLine - 2 * noteRadiusY,
+             targetX, topLine - 2 * noteRadiusY + targetHeight],
     stroke: targetColor,
     strokeWidth: 3, 
   });
@@ -79,9 +84,9 @@ function initKonva() {
 
   const targetZone = new Konva.Rect({
     x: targetX - targetZoneWidth/2,
-    y: topLine,
+    y: topLine - 2 * noteRadiusY,
     width: targetZoneWidth,
-    height: lineSpacing*10,
+    height: targetHeight,
     fill: targetColor,
     opacity: .2,
   });
@@ -96,6 +101,21 @@ function initKonva() {
   // add the layer to the stage
   stage.add(layer);
 
+  tooltip = new Konva.Text({
+        text: '',
+        fontFamily: 'Calibri',
+        fontSize: 20,
+        padding: 5,
+        textFill: 'white',
+        fill: 'black',
+        alpha: 0.75,
+        visible: false,
+      });
+  const tooltipLayer = new Konva.Layer();
+  tooltipLayer.add(tooltip);
+  stage.add(tooltipLayer);
+
+
   // draw the image
   layer.draw();
 
@@ -106,7 +126,7 @@ function createAndCacheElements() {
 
   // ellipse's ORIGIN/offset/center is the middle of the ellipse
   const quarterNoteHead = new Konva.Ellipse({
-    radiusX: 6,
+    radiusX: noteRadiusX,
     radiusY: noteRadiusY,
     fill: 'black', // set fill to 'white' for half notes
     stroke: noteColor,
@@ -271,14 +291,27 @@ function createAndCacheElements() {
   }));
   quarterNoteB.cache();
 
-  // a "bar" or line is used to separte every fourth quarter note
-  bar = new Konva.Line({
+  // a "measure" (or "bar") is used to separate every fourth quarter note
+  measure = new Konva.Group({});
+  measureLine = new Konva.Line({
     points: [0, lineSpacing*3,
              0, lineSpacing*7],
     stroke: lineStrokeColor,
-    strokeWidth: 1, 
+    strokeWidth: 2, 
   });
-  bar.cache();
+  measure.add(measureLine);
+  measure.cache();
+
+  // used when notes are hidden
+  hiddenTic = new Konva.Group({});
+  hiddenTicLine = new Konva.Line({
+    points: [0, lineSpacing*5-4,
+             0, lineSpacing*5+4],
+    stroke: lineStrokeColor,
+    strokeWidth: 2, 
+  });
+  hiddenTic.add(hiddenTicLine);
+  hiddenTic.cache();
 }
 
 // note relates to values in noteMapActuals
@@ -323,42 +356,68 @@ function renderNote(note) {
       break;
   }
 
-  const barInsertionPoint = noteCreateX + noteTotalWidth * beatCtr - noteTotalWidth/2;
+  const noteInsertionPoint = noteCreateX + noteTotalWidth * beatCtr;
+  const measureInsertionPoint = noteInsertionPoint - noteTotalWidth/2;
   if ((beatCtr % 4) === 0) {
-    roll.add(bar.clone({
-      points: [barInsertionPoint, lineSpacing*3,
-               barInsertionPoint, lineSpacing*7],
-    }));
+    const m = measure.clone({
+      x: measureInsertionPoint,
+    });
+    roll.add(m);
   }
 
-  const noteInsertionPoint = noteCreateX + noteTotalWidth * beatCtr;
+  if (rcs.hide) {
+    const h = hiddenTic.clone({
+      x: noteInsertionPoint,
+    });
+    roll.add(h);
+  }
+
   const newNoteK = noteK.clone({
-    //x: noteWidth * (i* allNotes  + j),
-    //x: noteSpacing + noteTotalWidth * beatCtr,
     x: noteInsertionPoint,
-    //x: i*nn + j*noteWidth,
     y: lineSpacing * staffLine/2
   });
+  newNoteK.on('mousemove', function (evt) {
+    const mousePos = stage.getPointerPosition();
+    tooltip.position({
+      x: mousePos.x + 5,
+      y: mousePos.y + 5,
+    });
+    tooltip.text(evt.currentTarget.getAttr(NOTE).n);
+    tooltip.show();
+  });
+  newNoteK.on('mouseout', function () {
+    tooltip.hide();
+  });
+
   newNoteK.setAttr(NOTE, note);
+  newNoteK.setAttr(NOTE_PLAYED, false);
+  newNoteK.setAttr(TYPE, TYPE_NOTE);
+  if (rcs.hide) {
+    newNoteK.setAttr('visible', false);
+  }
   roll.add(newNoteK);
 
   beatCtr++;
   layer.draw();
-
-  return newNoteK;
 }
 
-function findLeftMostGroupToPlay() {
+function findFirstUnplayedKonvaNote() {
   const c = roll.getChildren();
   if (c && c.length) {
-    // either have Shape=line or Group=note
-    if (c[0].getType() === 'Group') {
-      return c[0];
-    } else {
-      return c[1];
+    for (let i=0; i<c.length; i++) {
+      const child = c[i];
+      if (child.getAttr(TYPE) === TYPE_NOTE) {
+        const played = child.getAttr(NOTE_PLAYED);
+        if (played === false) {
+          return child;
+        }
+      }
     }
   }
-  return null;
+}
+
+function findFirstUnplayedNote() {
+  return findFirstUnplayedKonvaNote().getAttr(NOTE);
 }
 
 function findLeftMostNoteToPlay() {
@@ -370,26 +429,32 @@ function findLeftMostNoteToPlay() {
 }
 
 function releaseNoteAtTarget() {
-  playedCnt = 0;
-  stopPad(findLeftMostNoteToPlay().f);
-  destroyLeftMostNote();
-  eightIsGreate();
-  clearTimeout(padTimer);
+  heardCnt = 0;
+  const konvaNote = findFirstUnplayedKonvaNote();
+  stopPad(konvaNote.getAttr(NOTE).f);
+  konvaNote.setAttr(NOTE_PLAYED, true);
+  // always make note visible in case user toggles 'hide' back and forth
+  konvaNote.setAttr('visible', true);
+  if (! animateRoll.isRunning()) {
+    animateRoll.start();
+  }
+  stopPadAll();
   if (tone) {
     beep();
   }
 }
 
 function destroyAllNotes() {
-  const numNotes = getNumberOfNotes();
-  for (let i=0; i< numNotes; i++) {
-    destroyLeftMostNote();
+  const c = roll.getChildren();
+  for (let i=0; i < c.length; i++) {
+    c[i];
   }
 }
 
 function destroyLeftMostNote() {
   const c = roll.getChildren();
   if (c && c.length) {
+    // either have Type of Group (note) or Shape (measure-line) 
     if (c[0].getType() === 'Shape') {
       // get them both and destroy in case konva has timing issues
       const c0 = c[0];
@@ -402,25 +467,18 @@ function destroyLeftMostNote() {
   }
 }
 
-function getNumberOfNotes() {
-  const c = roll.getChildren();
-  let noteCtr = 0;
-  if (c && c.length) {
-    c.forEach(item => {
-      if (item.getType() === 'Group') {
-        noteCtr++;
-      }
-    });
-  }
-  return noteCtr;
-}
-
 function chooseAndRenderNote() {
   let choosenOne = lastRandomNote;
   // force the next random note be a different note than the previous value
+  let oopsCtr = 0;
   while (choosenOne.n === lastRandomNote.n) {
     const rand = Math.floor(Math.random()*(notesActualInKeyForRange.length));
     choosenOne = notesActualInKeyForRange[rand];
+    oopsCtr++;
+    if (oopsCtr === 100) {
+      console.warning('choosing random note stuck in loop');
+      break;
+    }
   }
   lastRandomNote = choosenOne;
 
@@ -428,29 +486,13 @@ function chooseAndRenderNote() {
   renderNote(choosenOne);
 }
 
-function renderLowestKeyNotes() {
-  //if (audioContext === null) return;
-  //console.log('   --  test start   --');
+function testRenderLowestKeyNotes() {
   destroyAllNotes();
   const firstNoteOfKeyIndex =  notesActualInKeyForRange.findIndex(n => n.n === rcs.key.root);
-
   const testNotes = notesActualInKeyForRange.slice(firstNoteOfKeyIndex,firstNoteOfKeyIndex+8);
   testNotes.forEach(n => {
     renderNote(n);
   });
-  //if (! animateRoll.isRunning()) {
-  //  animateRoll.start();
-  //}
-}
-
-function eightIsGreate() {
-  // if fewer than 8 notes, create another one
-  for (let i=getNumberOfNotes(); i < 8; i++) {
-    chooseAndRenderNote();
-    if (! animateRoll.isRunning()) {
-      animateRoll.start();
-    }
-  }
 }
 
 const nlm = {}; // noteLineMap for bass clef
@@ -520,19 +562,43 @@ function getStaffLine(note) {
 const animateRoll = new Konva.Animation(function (frame) {
 
   // frame.timeDiff is never very big even after a stop and start
-  const newX = roll.attrs.x - frame.timeDiff/1000 * animationVelocity;
+  const newX = roll.getAttr('x') - frame.timeDiff/1000 * rcs.animationVelocity;
   roll.x(newX);
 
-  const leftMostGroup = findLeftMostGroupToPlay();
-  const rollX = roll.getAttr('x');
-  if (leftMostGroup) {
-    const leftMostGroupX = leftMostGroup.getAttr('x');
-    if (leftMostGroupX + rollX <= targetX - targetZoneWidth/2) {
-      animateRoll.stop();
-      if (tone) {
-        loopPadStart(leftMostGroup.attrs.note.i);
+
+  // destroy notes on left and create notes on right
+  const c = roll.getChildren();
+  if (c && c.length) {
+    let child, childX;
+    for (let i=0; i<c.length; i++) {
+      child = c[i];
+      childX = newX + child.getAttr('x')
+      //console.log(childX + ' ' + noteDestroyX);
+      if (childX > 0 && childX <= noteDestroyX) {
+        child.destroy();
       }
-      return;
+    }
+
+    child = c[c.length-1];
+    childX = newX + child.getAttr('x')
+    if (childX > 0 && childX <= noteCreateX - noteTotalWidth) {
+      chooseAndRenderNote();
     }
   }
+
+
+  // as each notes passes the target stop the animation and optionally play tone
+  const konvaNote = findFirstUnplayedKonvaNote();
+  if (konvaNote) {
+    const konvaNoteX = konvaNote.getAttr('x') + newX  + noteRadiusX + 4;
+    const targetLineX = targetX + targetZoneWidth/2;
+    //console.log(' knx ' + konvaNoteX + '    ' + ' tlx ' + targetLineX);
+    if (konvaNoteX <= targetLineX) {
+      animateRoll.stop();
+      if (rcs.tone) {
+        loopPadStart(konvaNote.getAttr(NOTE));
+      }
+    }
+  }
+
 }, layer);

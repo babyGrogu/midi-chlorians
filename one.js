@@ -1,14 +1,10 @@
 
 window.AudioContext = window.AudioContext || window.webkitAudioContext;
 
-var analyser = null;
+let analyser = null;
 let audioContext = null;
-let MAX_SIZE = null;
-
-var rafID = null;
-var tracks = null;
-var buflen = 2048;
-var buf = new Float32Array( buflen );
+let rafID = null;
+let buf = new Float32Array( 2048 );
 
 
 const notes = [
@@ -25,7 +21,7 @@ const notes = [
   'Bb/A#',  // 10
   'B=Cb'    // 11
 ];
-const keys = [   // todo: write a loop that creates this structure?
+const keys = [
   {label: 'C Major', root: notes[0]},   // no sharps or flats
   {label: 'G Major', root: notes[7]},   // sharps
   {label: 'D Major', root: notes[2]},
@@ -45,35 +41,28 @@ const keys = [   // todo: write a loop that creates this structure?
 ];
 keys.forEach((k,i) => k.i = i); // number the keys with i
 
-const CLEF_BASS = 'bass';
-const CLEF_TREBLE = 'treble';
-const INST_BASS4 = 'bass4';
-const INST_BASS5 = 'bass5';
-const INST_BASS6 = 'bass6';
-const INST_GUITAR = 'guitar';
-const INST_PIANO = 'piano';
+//const CLEF_BASS = 'bass';
+//const CLEF_TREBLE = 'treble';
+//const INST_BASS4 = 'bass4';
+//const INST_BASS5 = 'bass5';
+//const INST_BASS6 = 'bass6';
+//const INST_GUITAR = 'guitar';
+//const INST_PIANO = 'piano';
 const KEY_MAJOR_HALF_STEPS = [2,2,1,2,2,2,1];
 const KEY_MINOR_HALF_STEPS = [2,1,2,2,1,2,2]
-const ACTUAL = 'actual';
-const MINIMUM = 'minimum';
-const LOWER24 = Math.pow(1/2, 1/24);
-const HIGHER24 = Math.pow(2, 1/24);
-const noteMap = [];
-const searchMiddle = 20;
 const NONE = 'none';
-const animateSpeed = (m) => animationVelocity = Math.round(animationVelocity * m);
 
-let clef = CLEF_BASS;
-let inst = INST_BASS4;
+//let clef = CLEF_BASS;
+//let inst = INST_BASS4;
 let keySteps = KEY_MAJOR_HALF_STEPS;
 let chooseNoteTimer = -1;
 let animationFramesCtr = 0;
-let playedCnt = 0;
-let playedCntReq = 23;
+let heardCnt = 0;
 let pitchElem, noteElem, numCorrect, detuneElem, detuneAmount, lastPlayed;
-let loopFreq, loopsCtr, padTimer;
+let loopFreq, loopsCtr, padTimerRestart, padTimerStop, timeoutThird, timeoutFifth, timeoutSeventh;
 let padFreqs = {};
 
+/*
 let instruments = {
   // using javascript syntax for "computed keys"
   [INST_BASS4]: {
@@ -101,12 +90,13 @@ let instruments = {
     rangeActual: [0, 87],
   },
 };
+*/
 
 // arrays of notes
-let notesActual, noteNamesInKey, notesActualInKeyForRange=[], notesMinimum, notesLow, notesHigh;
+let notesActual=[], noteNamesInKey, notesActualInKeyForRange=[], notesMinimum=[];
 
 
-createNoteMap();
+createsNotesArrays();
 
 // onload handler has to be at top
 window.onload = function () {
@@ -155,7 +145,7 @@ function gotStreamWrapper(stream) {
         // seems like this 'cable' method fails sometimes
 
         try {
-  console.log('try ');
+          console.log('try ');
           navigator.getUserMedia(
             {audio: {deviceId: device.deviceId} }, gotStream, error);
         } catch (e) {
@@ -168,7 +158,7 @@ function gotStreamWrapper(stream) {
 }
 
 function gotStream(stream) {
-  console.log('gs ');
+    console.log('gs ');
     // Create an AudioNode from the stream.
     mediaStreamSource = audioContext.createMediaStreamSource(stream);
 
@@ -267,6 +257,26 @@ function autoCorrelate( buf, sampleRate ) {
 	return sampleRate/T0;
 }
 
+function binarySearch(freq) {
+  let lower = 0, middle = 0, upper = notesMinimum.length-1, oopsCtr = 0;
+  function compare() {
+    if (freq < notesMinimum[middle].f) {
+      return 0;
+    }
+    return 1;
+  }
+  while (upper - lower > 1) {
+    middle = Math.floor((lower + upper)/2);
+    if (compare()) {
+      lower = middle;
+    } else {
+      upper = middle;
+    }
+    oopsCtr++; if (oopsCtr > notesMinimum.length) break;
+  }
+  return notesMinimum[lower];
+}
+      
 function updatePitch() {
 
 	analyser.getFloatTimeDomainData( buf );
@@ -282,31 +292,8 @@ function updatePitch() {
 	 	let note = noteFromPitch( noteFreq );
 		noteElem.innerHTML = notes[note%12];
 
-    if (noteMap[0].f <= noteFreq && noteFreq < noteMap[noteMap.length-1].f) {
-      let noteHeard = null;
-
-      //-----------
-      // this is an optimization which may not be needed at all...
-      // rather than searching linearly through all the 88 notes, this splits them somewhere
-      //   (now split is good for bass then later for guitar or piano)
-      // and if freq is lower than the search point, go down notesLow
-      // and if freq is higher than the split point, go up the notesHigh
-      // - NOTE 1: for "real music" it may be better to just search from the last note played
-      //   and go up or down from there
-      // - NOTE 2: maybe none of this is needed and all 88 notes could be searched very fast
-      if (noteFreq < notesHigh[0].f) {
-        // notesLow has notes high to low
-        // so the first note where the freq is higher is our note
-        noteHeard = notesLow.find(note => noteFreq >= note.f );
-      } else {
-        // notesHigh has notes low to high
-        // so find the first note where noteFreq is lower than the minimum of the next note
-        // and then backup one note
-        const ind = notesHigh.findIndex(note => noteFreq < note.f);
-        noteHeard = notesHigh[ind-1];
-      }
-      //-----------
-
+    if (notesMinimum[0].f <= noteFreq && noteFreq < notesActual[notesActual.length-1].f) {
+      const noteHeard = binarySearch(noteFreq);
       /*
       console.log(
         (noteHeard) ?
@@ -317,20 +304,22 @@ function updatePitch() {
       */
       if (noteHeard) {
         noteElem.innerHTML = noteHeard.n + ' ' + noteHeard.l + ' ' + noteHeard.f;
-      }
 
-      const leftMostNote = findLeftMostNoteToPlay();
-      if (leftMostNote && noteHeard.n === leftMostNote.n &&
-          (rcs.octEq ? true : noteHeard.l === leftMostNote.l)) {
-        if (playedCnt >= playedCntReq) {
-          lastPlayed.innerHTML = 'Correctly played: ' + noteHeard.n +
-            ' ' + leftMostNote.l + '=' + noteHeard.l;
-          if (releaseWhenHeard || (tone && loopsCtr === 0)){
-            releaseNoteAtTarget();
+        const firstUnplayedNote = findFirstUnplayedNote();
+        if (firstUnplayedNote && noteHeard.n === firstUnplayedNote.n &&
+            (rcs.octEq ? true : noteHeard.l === firstUnplayedNote.l)) {
+          if (heardCnt >= rcs.heardCntReq) {
+            lastPlayed.innerHTML = 'Correctly played: ' + noteHeard.n +
+              ' ' + firstUnplayedNote.l + '=' + noteHeard.l;
+            if (releaseWhenHeard || (tone && loopsCtr === 0)){
+              releaseNoteAtTarget();
+            }
           }
+          numCorrect.innerHTML = heardCnt + '/' + rcs.heardCntReq;
+          heardCnt++;
         }
-        numCorrect.innerHTML = playedCnt + '/' + playedCntReq;
-        playedCnt++;
+      } else {
+        console.warn('noteHeard not found: noteFreq=' + noteFreq);
       }
     }
 
@@ -354,84 +343,44 @@ function updatePitch() {
 
 //--------------------------------------------------------------
 
-function createNoteMap() {
+function createsNotesArrays() {
   // todo: add text field for a4 frequencies
   //const a4Freq = document.getElementById('frequency').value;
   const a4Freq = 440;
-  function createBasedOnA4Freq(a4Freq) {
+  // go down four octaves
+  const a0 = a4Freq * Math.pow(1/2, 4);
+  const TWELFTH_ROOT_OF_TWO = Math.pow(2, 1/12);
+  const TWENTY_FOURTH_ROOT_OF_ONE_HALF = Math.pow(1/2, 1/24);
+  let note, level, freq, ind;
 
-    function roundTo(n, digits) {
-        if (digits === undefined) { digits = 0; }
-        var multiplicator = Math.pow(10, digits);
-        n = parseFloat((n * multiplicator).toFixed(11));
-        return Math.round(n) / multiplicator;
-    }
-
-    function addNote(note, level, freq, noteOrNot) {
-      noteMap.push({
-        //i: noteIndex, // added after all the notes have been created
-        n: note,
-        l: level,
-        f: roundTo(freq,2),
-        x: (noteOrNot ? ACTUAL : MINIMUM )
-      });
-    }
-
-    // - twoNoteArray is INCLUSIVE, both notes and all in between are included
-    // - to go lower in frequency give the highest note first
-    function createNoteRange(twoNoteArray, level, lower) {
-      const n1 = notes.indexOf(twoNoteArray[0]);
-      const n2 = notes.indexOf(twoNoteArray[1]);
-      let targetNotes;
-      // going lower so reverse
-      if (n1 <= n2) {
-        // inclusive so add one to ending index
-        targetNotes = notes.slice(n1, n2 + 1);
-      } else {
-        targetNotes = notes.slice(n2, n1 + 1).reverse();
-      }
-      targetNotes.forEach(note => {
-        addNote(note, level, lastFreq, lower);
-        lastFreq *= lower ? LOWER24 : HIGHER24;
-        addNote(note, level, lastFreq, !lower);
-        lastFreq *= lower ? LOWER24 : HIGHER24;
-      });
-    }
-
-    let lastFreq = a4Freq;
-    // going high to low from middle A4
-    createNoteRange(['A','C=B#'], 4, true);
-    createNoteRange(['B=Cb','C=B#'], 3, true);
-    createNoteRange(['B=Cb','C=B#'], 2, true);
-    createNoteRange(['B=Cb','C=B#'], 1, true);
-    // piano low note is A0=27.50Hz
-    createNoteRange(['B=Cb','A'], 0, true);
-
-    noteMap.reverse();
-    // going low to high above middle A4
-    lastFreq = a4Freq * HIGHER24;
-    createNoteRange(['Bb/A#','B=Cb'], 4, false);
-    createNoteRange(['C=B#','B=Cb'], 5, false);
-    createNoteRange(['C=B#','B=Cb'], 6, false);
-    createNoteRange(['C=B#','B=Cb'], 7, false);
-    // piano high note is C8=4186Hz
-    createNoteRange(['C=B#','C=B#'], 8, false);
+  function roundTo(n, digits) {
+      if (digits === undefined) { digits = 0; }
+      var multiplicator = Math.pow(10, digits);
+      n = parseFloat((n * multiplicator).toFixed(11));
+      return Math.round(n) / multiplicator;
   }
 
-  createBasedOnA4Freq(a4Freq);
+  // 89 go one note higher so array has the MINIMUM above the last 88th piano note
+  for (let i=0; i<89; i++) {
+    note = notes[(9 + i + 12) % 12];
+    level = Math.floor((9 + i)/12);
+    freq = a0*Math.pow(TWELFTH_ROOT_OF_TWO, i);
 
-  notesActual = noteMap.filter(item => item.x === ACTUAL);
+    notesMinimum.push({
+      n: note,
+      l: level,
+      f: roundTo(freq * TWENTY_FOURTH_ROOT_OF_ONE_HALF, 2),
+    });
 
-  // add noteIndex 'i' value to each actual entry
-  notesActual.forEach((n, i) => n.i = i);
-
-  notesMinimum = noteMap.filter(item => item.x === MINIMUM);
-  notesLow = notesMinimum.slice(0,searchMiddle).reverse();
-  notesHigh = notesMinimum.slice(searchMiddle);
+    notesActual.push({
+      n: note,
+      l: level,
+      f: roundTo(freq, 2),
+      i,
+    });
+  }
 }
 
-// TODO: need to set up a structure that for each frequeency it has a set
-// of saws that can be started and stopped
 function pad(freq) {
   stopPad(freq);
 
@@ -479,23 +428,24 @@ function pad(freq) {
   square.connect(squareGain);
   square.start(t);
 
-  console.log('pad ' + freq);
+  //console.log('pad ' + freq);
   padFreqs[freq] = [saw1, saw2, square];
 }
 
-function loopPadStart(notesActualIndex) {
+function loopPadStart(note) {
+  let notesActualIndex = note.i
   if (rcs.octHigher) {
     notesActualIndex = notesActualIndex + 12;
   }
   let f = notesActual[notesActualIndex].f;
-  stopPad(f);
+  stopPad(f); // just in case it was running already
   loopsCtr = rcs.loops;
   loopFreq = f;
   loopPadRestart();
 }
 function loopPadRestart() {
   startPad(loopFreq);
-  padTimer = setTimeout(() => {
+  padTimerRestart = setTimeout(() => {
     loopPadStop();
   }, rcs.loopPlayTime);
 }
@@ -503,7 +453,7 @@ function loopPadStop() {
   stopPad(loopFreq);
   loopsCtr--;
   if (loopsCtr > 0) {
-    padTimer = setTimeout(() => {
+    padTimerStop = setTimeout(() => {
       loopPadRestart();
     }, rcs.loopPauseTime);
   } else if (rcs.listening === NONE) {
@@ -511,7 +461,6 @@ function loopPadStop() {
   }
 }
 
-// if previously played a pad at this freq then stop them
 function startPad(freq) {
   pad(freq);
 
@@ -524,21 +473,21 @@ function startPad(freq) {
   if (rcs.tone3) {
     const thirdFreq = calcIntervalFreq(freq, 2);
     playTone++;
-    setTimeout(() => {
+    timeoutThird = setTimeout(() => {
       pad(thirdFreq);
     }, playTone * stoTime/chordTones ) ;
   }
   if (rcs.tone5) {
     const fifthFreq = calcIntervalFreq(freq, 4);
     playTone++;
-    setTimeout(() => {
+    timeoutFifth = setTimeout(() => {
       pad(fifthFreq);
     }, playTone * stoTime/chordTones ) ;
   }
   if (rcs.tone7) {
     const seventhFreq = calcIntervalFreq(freq, 6);
     playTone++;
-    setTimeout(() => {
+    timeoutSeventh = setTimeout(() => {
       pad(seventhFreq);
     }, playTone * stoTime/chordTones ) ;
   }
@@ -548,9 +497,13 @@ function stopPad(freq) {
   function stopFreq(f) {
     if (padFreqs[f]) {
       const oscs = padFreqs[f];
-      oscs[0].stop();
-      oscs[1].stop();
       oscs[2].stop();
+      oscs[1].stop();
+      oscs[0].stop();
+      delete oscs[2];
+      delete oscs[1];
+      delete oscs[0];
+      delete padFreqs[f];
     }
   }
   stopFreq(freq);
@@ -565,11 +518,17 @@ function stopPad(freq) {
   stopFreq(seventhFreq);
 }
 
-// oops, something is wrong, stop all pads
 function stopPadAll() {
-  for (let f in padFreqs) {
-    stopPad(parseInt(f,10));
+  for (const [key, value] of Object.entries(padFreqs)) {
+    //console.log(`${key} ${value}`);
+    stopPad(key);
   }
+
+  clearTimeout(padTimerRestart);
+  clearTimeout(padTimerStop);
+  clearTimeout(timeoutThird);
+  clearTimeout(timeoutFifth);
+  clearTimeout(timeoutSeventh);
 }
 
 function beep() {
@@ -590,7 +549,7 @@ function calcIntervalFreq(freq, distanceOfNotesInKey) {
     // get index of note for loopFreq and get note
     const indexOfRoot = notesActual.findIndex(n => n.f === freq);
     const noteOfRoot = notesActual[indexOfRoot];
-    if (noteOfRoot === -1) return -1;
+    if (noteOfRoot === undefined) return -1;
     // from that note name find the note the distance away
     const index = noteNamesInKey.findIndex(n => n === noteOfRoot.n);
     // index of it's fifth note
@@ -605,30 +564,36 @@ function initIt() {
   audioContext = new AudioContext();
   startAudioProcessing();
   startKeyBoardListening();
-  eightIsGreate();
+  chooseAndRenderNote();
 }
 
 function startIt(inited) {
   if (!inited) {
     initIt();
   }
-  animateRoll.start();
+  if (! animateRoll.isRunning()) {
+    animateRoll.start();
+  }
 }
 
 function stopIt() {
   animateRoll.stop();
+  stopPadAll();
 }
 
 function startKeyBoardListening() {
   document.addEventListener('keyup', evt => {
-    if (evt.key && evt.key === ' ') {
-      loopPadRestart();
-    }
-    else if (evt.key) {
-      const leftMostNote = findLeftMostNoteToPlay();
-      if (leftMostNote && leftMostNote.n.toLowerCase().indexOf(evt.key) > -1) {
-        lastPlayed.innerHTML = 'Correctly keyed: ' + leftMostNote.n;
+    if (evt.key) {
+      if (evt.key === ' ') {
+        loopPadRestart();
+      } else if (evt.key === 'n') {
         releaseNoteAtTarget();
+      } else {
+        const note = findFirstUnplayedNote();
+        if (note && note.n.toLowerCase().indexOf(evt.key) > -1) {
+          lastPlayed.innerHTML = 'Correctly keyed: ' + note.n;
+          releaseNoteAtTarget();
+        }
       }
     }
   });
@@ -637,11 +602,20 @@ function startKeyBoardListening() {
 
 /**
   todo:
+    - add checkbox to control hiding of notes until released
+    - add saving of form values using useEffect and localStorage
+    https://blog.bitsrc.io/5-methods-to-persisting-state-between-page-reloads-in-react-8fc9abd3fa2f
+    - handle resizing of window bigger and smaller from left and right and correct note handling
+    - create UI for simplest use case
+    - add saving of stats on simplest use case on browser side
+    - add manipulation of random notes based on worst performing notes
+    - add spectro like this https://www.youtube.com/watch?v=eEeUFB1iIDo
+    - put whole thing into web tool chain
+       then konva can be used in react if that is ever needed
     - add volume for roots, 3rds, 5ths, 7ths
     - add natural MINOR 15 scales (back 3 half steps from major, that is relative/natural minor)
     - add melodic MINOR 15 scales
     - add notes higher on the bass clef (beyond fret 12)
-    - add a tooltip/mousetip above each note saying what each one represents(flats, sharps..)
     - add higher notes 9th? 11th? for chords
     - add harmonic MINOR 15 scales
     - add staff and key signature on staff
@@ -650,7 +624,4 @@ function startKeyBoardListening() {
     - if mode not to stop then color notes green good / red bad
     - add select list for people to choose their device for their particular 'USB ' cable
     - add back the bass instrument 4,5,6 string range helper
-    - put whole thing into web tool chain
-       then konva can be used in react if that is ever needed
-    - add spectro like this https://www.youtube.com/watch?v=eEeUFB1iIDo
 */
