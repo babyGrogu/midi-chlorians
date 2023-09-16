@@ -1,9 +1,10 @@
 'use strict';
 
-const { useReducer, createElement } = React
+const { useReducer, createElement, useEffect } = React
 const { createRoot } = ReactDOM;
 
 const CMD_SET_INITED = 'INITED';
+const CMD_RESET = 'RESET';
 const CMD_SET_INPUT = 'LISTENING';
 const CMD_SET_OCTEQ = 'OCT_EQ';
 const CMD_SET_OCT_HIGHER = 'OCT_HIGHER';
@@ -29,15 +30,16 @@ const changeAnimationVelocity = (m) => Math.round(rcs.animationVelocity * m);
 
 let rcs = {}; // reducer controlled state
 let notesActualLowHighRange = [];
-let initialReducerControlledState = {
-  inited: false,
+
+// keep rcs flat (no nested objects) so the simple localStorage of ui settings will work
+const defaultState = {
   listening: NONE,
   octEq: false,
   octHigher: false,
   amp: false,
-  hide: true,
+  hide: false,
   //instrument: INST_BASS4,
-  key: keys[0], // 0 = C major
+  key: 0, // 0 = C major
   rangeLow: 7,  // value of notesActual for BASS4
   rangeHigh: 34, // value of notesActual for BASS4
   animationVelocity: 420,
@@ -52,11 +54,27 @@ let initialReducerControlledState = {
   loopPauseTime: 200,
   heardCntReq: 23,
 };
+const LOCAL_STORAGE_KEY = 'babyGrogu';
+const localStoreData = JSON.parse(window.localStorage.getItem(LOCAL_STORAGE_KEY));
+let changes;
+if (localStoreData) {
+  changes = findChangesFromDefault(localStoreData);
+}
+const initialState = {...defaultState, ...changes};
 
+calculateLowHighRange(initialState);
+calculateNotesForKey(initialState);
 
-calculateLowHighRange(initialReducerControlledState);
-calculateNotesForKey(initialReducerControlledState);
-
+function findChangesFromDefault(obj) {
+  const c = {};
+  for (const [k, v] of Object.entries(defaultState)) {
+    const lsdv = obj[k];
+    if (lsdv !== undefined && lsdv !== v) {
+      c[k] = lsdv;
+    }
+  }
+  return c;
+}
 
 // changing keys should not effect range
 // a control for instruments could affect the ranges
@@ -76,7 +94,7 @@ function calculateNotesForKey(state) {
   // NOTE: noteNamesInKey might be better to be the note object rather than just the
   // names. If using notes that would make the
   noteNamesInKey = [];
-  for (let i = notes.indexOf(state.key.root), j = 0;
+  for (let i = notes.indexOf(keys[state.key].root), j = 0;
        j < keySteps.length;
        i = (i + keySteps[j]) % notes.length, j++) {
     const noteInKey = notes[i];
@@ -176,20 +194,40 @@ function renderKeysForKeySelection() {
   ));
 }
 
-function renderNotesForKey(key) {
-  return noteNamesInKey.map((n,i) => ( <span key={i}>{noteLabelForKey(n,key)} </span> ));
-  //return noteNamesInKey.map((n,i) => ( <span key={i}>&nbsp;&nbsp;&nbsp;&nbsp;<input type="checkbox" id={'noteInKeyCheck' + n} value={'noteInKeyCheck' + n} onChange={e => console.log('noteInKeyChecked ' + n)} /><span>{noteLabelForKey(n,key)}</span></span> ));
+function renderNotesForKey(k) {
+  return noteNamesInKey.map((n,i) => ( <span key={i}>{noteLabelForKey(n,k)} </span> ));
+  //return noteNamesInKey.map((n,i) => ( <span key={i}>&nbsp;&nbsp;&nbsp;&nbsp;<input type="checkbox" id={'noteInKeyCheck' + n} value={'noteInKeyCheck' + n} onChange={e => console.log('noteInKeyChecked ' + n)} /><span>{noteLabelForKey(n,k)}</span></span> ));
 }
+
+// does not handle nested objects, keep rcs flat
+function changesFromDefaults(current) {
+  if (current === undefined) return null;
+  let changed = {};
+  for (const k of Object.keys(defaultState)) {
+    if (defaultState[k] !== current[k] && current[k] !== undefined) {
+      changed[k] = current[k];
+    }
+  }
+  if (Object.keys(changed).length) {
+    return changed;
+  }
+  return null;
+}
+
 
 function controlsReducer(state, action) {
   let newState = {};
   switch(action.command) {
     case (CMD_SET_INITED):
-      startIt(state.inited);
-      state = {...state, inited: true};
+      startIt();
+      action.target.blur();
+      return state;
+    case (CMD_RESET):
+      state = defaultState;
+      action.target.blur();
       return state;
     case (CMD_SET_KEY):
-      newState = {...state, key: keys[parseInt(action.key,10)]};
+      newState = {...state, key: action.key};
       calculateNotesForKey(newState);
       action.target.blur(); // remove focus from widget so typing does not change selection
       return newState;
@@ -251,31 +289,42 @@ function controlsReducer(state, action) {
       // todo:
       return state;
   }
+  // save to localstore here?
   return state;
 }
 
+
 const Controls = (props) => {
-  const [reducerControlledState, dispatch] =
-    useReducer(controlsReducer, initialReducerControlledState);
+  const [reducerControlledState, dispatch] = useReducer(controlsReducer, initialState);
+  
   rcs = reducerControlledState;
-  const key = rcs.key;
+
+  // store values so next window load can reuse
+  useEffect(() => {
+    const c = findChangesFromDefault(rcs);
+    if (Object.keys(c).length) {
+      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(c));
+    } else {
+      window.localStorage.removeItem(LOCAL_STORAGE_KEY);
+    }
+  }, [rcs]);
 
   return (
     <div>
 
       <div>
         <select id="selectRoot"
-          value={keys.findIndex(k => k.label === rcs.key.label)}
+          value={keys.findIndex(k => k.label === keys[rcs.key].label)}
           onChange={e =>
             dispatch({
               command: CMD_SET_KEY,
-              key: e.currentTarget.value,
+              key: parseInt(e.currentTarget.value, 10),
               target: e.currentTarget
             })
           }
         >{ renderKeysForKeySelection() }</select>
        <label> key: scale notes</label>
-       <span> { renderNotesForKey(key) }</span>
+       <span> { renderNotesForKey(keys[rcs.key]) }</span>
       </div>
 
       <div>
@@ -287,7 +336,7 @@ const Controls = (props) => {
               target: e.currentTarget,
             })
           }
-        >{ renderNotesForRangeSelection(key) }</select>
+        >{ renderNotesForRangeSelection(keys[rcs.key]) }</select>
         <label> lowest note </label>
       </div>
 
@@ -301,7 +350,7 @@ const Controls = (props) => {
             })
           }
         >
-        >{ renderNotesForRangeSelection(key) }</select>
+        >{ renderNotesForRangeSelection(keys[rcs.key]) }</select>
         <label> highest note </label>
       </div>
 
@@ -315,8 +364,8 @@ const Controls = (props) => {
             })
         }>
           <option value={NONE}>No Listening</option>
-          <option value="cable">Instrument Cable (to USB)</option>
           <option value="mic">Microphone</option>
+          <option value="cable">Instrument Cable (to USB)</option>
         </select>
         <label> listening mode </label>
       </div>
@@ -484,39 +533,30 @@ const Controls = (props) => {
       <div className="vertSpacer"></div>
 
       <div>
-        <input id="velocity" type="range" value={rcs.animationVelocity} min="10" max="800" onChange={e =>
-          dispatch({
-            command: CMD_SET_VELOCITY,
-            vel: parseInt(e.currentTarget.value,10),
-          })} />
+        <input id="velocity" type="range" value={rcs.animationVelocity} min="10" max="800"
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_VELOCITY,
+              vel: parseInt(e.currentTarget.value,10),
+            })} />
         <label>{rcs.animationVelocity} staff note speed </label>
       </div>
 
       <div className="vertSpacer"></div>
 
       <div>
-        <button onClick={() => dispatch({command: CMD_SET_INITED, inited: true})}>Start</button>
+        <button onClick={e => dispatch({
+          command: CMD_SET_INITED,
+          target: e.currentTarget
+        })}>Start</button>
+        <span className="horizSpacer"></span>
         <button onClick={stopIt}>Stop</button>
+        <span className="horizSpacer"></span>
+        <button onClick={e => dispatch({
+          command: CMD_RESET,
+          target: e.currentTarget
+        })}>Reset</button>
       </div>
-
-      {/*
-      <div>
-        <select id="selectInst" value={rcs.instrument}
-          onChange={e => 
-            dispatch({
-              command: CMD_SET_INST,
-              inst: e.currentTarget.value
-            })
-          }
-        >
-        {
-          Object.keys(instruments).map(inst => (
-            <option key={inst} value={inst} label={instruments[inst].text} />
-          ))
-        }</select>
-        <span> instrument </span>
-      </div>
-      */}
     </div>
   );
 };

@@ -1,12 +1,3 @@
-
-window.AudioContext = window.AudioContext || window.webkitAudioContext;
-
-let analyser = null;
-let audioContext = null;
-let rafID = null;
-let buf = new Float32Array( 2048 );
-
-
 const notes = [
   'C=B#',   // 0
   'Db/C#',  // 1
@@ -61,124 +52,32 @@ let heardCnt = 0;
 let pitchElem, noteElem, numCorrect, detuneElem, detuneAmount, lastPlayed;
 let loopFreq, loopsCtr, padTimerRestart, padTimerStop, timeoutThird, timeoutFifth, timeoutSeventh;
 let padFreqs = {};
-
-/*
-let instruments = {
-  // using javascript syntax for "computed keys"
-  [INST_BASS4]: {
-    text: 'bass (4 string, EADG)',
-    //strings: ['E1','A1','D2','G2'],
-    rangeActual: [7, 46],
-  },
-  [INST_BASS5]: {
-    text: 'bass (5 string, BEADG)',
-    //strings: ['B0','E1','A1','D2','G2'],
-    rangeActual: [2, 46],
-  },
-  [INST_BASS6]: {
-    text: 'bass (6 string, BEADGC)',
-    //strings: ['B0','E1','A1','D2','G2', 'C3'],
-    rangeActual: [2, 51],
-  },
-  [INST_GUITAR]: {
-    text: 'guitar (6 string, EADGBE)',
-    //strings: ['E2','A2','D3','G3','B4', 'E4'],
-    rangeActual: [19, 67],
-  },
-  [INST_PIANO]: {
-    text: 'piano (88 keys)',
-    rangeActual: [0, 87],
-  },
-};
-*/
+let inited =  false; // inited doesn't have a UI setting so keeping out of rcs
 
 // arrays of notes
 let notesActual=[], noteNamesInKey, notesActualInKeyForRange=[], notesMinimum=[];
+
+// webaudio variables
+let analyser = null;
+let audioContext = null;
+let rafID = null;
+let buf = new Float32Array( 2048 );
 
 
 createsNotesArrays();
 
 // onload handler has to be at top
 window.onload = function () {
-
-  // is this the best place to start all this?
-
 	pitchElem = document.getElementById("pitch");
 	noteElem = document.getElementById("note");
 	numCorrect = document.getElementById("numCorrect");
 	detuneElem = document.getElementById("detune");
 	detuneAmount = document.getElementById("detune_amt");
 	lastPlayed = document.getElementById("lastPlayed");
+
+  // is this the best place to start all this?
   initKonva();
 }
-
-function error() {
-    alert('Stream generation failed.');
-}
-
-function getUserMedia(dictionary, callback) {
-    try {
-        navigator.getUserMedia =
-          navigator.getUserMedia ||
-          navigator.webkitGetUserMedia ||
-          navigator.mozGetUserMedia;
-        navigator.getUserMedia(dictionary, callback, error);
-    } catch (e) {
-        alert('getUserMedia threw exception :' + e);
-    }
-}
-
-function gotStreamWrapper(stream) {
-  if (rcs.listening === 'mic') {
-    // proceed to the old code
-    gotStream(stream);
-    return;
-  }
-  // seems like to use the cable we need to first have the user accept
-  // using the microphone device and only after that we can see the USB cable
-  // among numerateDevices, otherwise we don't see the USB device
-  navigator.mediaDevices.enumerateDevices().then((devices) => {
-    devices.forEach(device => {
-      if (device.label.indexOf('USB ') > -1 && device.kind.indexOf('audioinput') > -1) {
-        // todo: do we need to put this try-catch into a setTimeout
-        // can two getUserMedia's be called recursively?
-        // seems like this 'cable' method fails sometimes
-
-        try {
-          console.log('try ');
-          navigator.getUserMedia(
-            {audio: {deviceId: device.deviceId} }, gotStream, error);
-        } catch (e) {
-            alert('getting cable user media threw exception :' + e);
-        }
-        return;
-      }
-    });
-  });
-}
-
-function gotStream(stream) {
-    console.log('gs ');
-    // Create an AudioNode from the stream.
-    mediaStreamSource = audioContext.createMediaStreamSource(stream);
-
-    // Connect it to the destination.
-    analyser = audioContext.createAnalyser();
-    analyser.fftSize = 2048;
-    mediaStreamSource.connect( analyser );
-
-    if (rcs.amp) {
-      analyser.connect(audioContext.destination);
-    }
-
-    // had to add this to get just the 'use live input' button to work
-    // without using one of the other two buttons first
-    audioContext.resume();
-
-    updatePitch();
-    beep();
-}
-
 
 function startAudioProcessing() {
   // no listening mode
@@ -186,17 +85,62 @@ function startAudioProcessing() {
     return;
   }
 
-  getUserMedia({
-    "audio": {
+  function gotStream(stream) {
+    console.log('gs ');
+    // Create an AudioNode from the stream.
+    mediaStreamSource = audioContext.createMediaStreamSource(stream);
+    // Connect it to the destination.
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 2048;
+    mediaStreamSource.connect( analyser );
+    if (rcs.amp) {
+      analyser.connect(audioContext.destination);
+    }
+    updatePitch();
+    beep(); // so i know it worked
+  }
+
+  function handleError(err) {
+    // always check for errors at the end.
+    console.error(`${err.name}: ${err.message}`);
+    alert('Stream generation failed.');
+  }
+
+  // get an audio context
+  audioContext = new AudioContext();
+
+  // new version of getUserMedia from 
+  // https://github.com/cwilso/PitchDetect/commit/dcae53dc491e42806870abf5588f6f46df56a9a5
+  if (rcs.listening === 'mic') {
+    // Attempt to get audio input
+    navigator.mediaDevices.getUserMedia({
+      "audio": {
         "mandatory": {
-            "googEchoCancellation": "false",
-            "googAutoGainControl": "false",
-            "googNoiseSuppression": "false",
-            "googHighpassFilter": "false"
+          "googEchoCancellation": "false",
+          "googAutoGainControl": "false",
+          "googNoiseSuppression": "false",
+          "googHighpassFilter": "false"
         },
         "optional": []
-    },
-  }, gotStreamWrapper);
+      }
+    }).then((stream) => {
+      gotStream(stream);
+    }).catch(handleError);
+  } else if (rcs.listening === 'cable') {
+    navigator.mediaDevices.enumerateDevices().then(devices => {
+      devices.forEach(device => {
+        if (device.label.indexOf('USB ') > -1 && device.kind.indexOf('audioinput') > -1) {
+          navigator.mediaDevices.getUserMedia({
+            "audio": {
+              "deviceId": device.deviceId
+            }
+          }).then(stream => {
+            gotStream(stream);
+          }).catch(handleError);
+        }
+      });
+    });
+  }
 }
 
 function noteFromPitch( frequency ) {
@@ -519,9 +463,9 @@ function stopPad(freq) {
 }
 
 function stopPadAll() {
-  for (const [key, value] of Object.entries(padFreqs)) {
-    //console.log(`${key} ${value}`);
-    stopPad(key);
+  for (const [freq, value] of Object.entries(padFreqs)) {
+    //console.log(`${freq} ${value}`);
+    stopPad(freq);
   }
 
   clearTimeout(padTimerRestart);
@@ -561,13 +505,14 @@ function calcIntervalFreq(freq, distanceOfNotesInKey) {
 }
 
 function initIt() {
+  inited = true;
   audioContext = new AudioContext();
   startAudioProcessing();
   startKeyBoardListening();
   chooseAndRenderNote();
 }
 
-function startIt(inited) {
+function startIt() {
   if (!inited) {
     initIt();
   }
@@ -602,14 +547,16 @@ function startKeyBoardListening() {
 
 /**
   todo:
-    - add checkbox to control hiding of notes until released
-    - add saving of form values using useEffect and localStorage
-    https://blog.bitsrc.io/5-methods-to-persisting-state-between-page-reloads-in-react-8fc9abd3fa2f
-    - handle resizing of window bigger and smaller from left and right and correct note handling
-    - create UI for simplest use case
+    - when changing keys wipe out current notes and make sure new notes are correct
+    - add chromatic (12 keys) (that will change the numberOfNotesInRange settings)
+    - try making better pad sounds
     - add saving of stats on simplest use case on browser side
     - add manipulation of random notes based on worst performing notes
+    - handle resizing of window bigger and smaller from left and right and correct note handling
+    - create UI for simplest use case
+      - means adding konva sharps and flats (# for sharp keys, b for flats)
     - add spectro like this https://www.youtube.com/watch?v=eEeUFB1iIDo
+    - add bass clef and key items
     - put whole thing into web tool chain
        then konva can be used in react if that is ever needed
     - add volume for roots, 3rds, 5ths, 7ths
@@ -619,9 +566,8 @@ function startKeyBoardListening() {
     - add higher notes 9th? 11th? for chords
     - add harmonic MINOR 15 scales
     - add staff and key signature on staff
-    - add chromatic (12 keys) (that will change the numberOfNotesInRange settings)
-      - means adding konva sharps and flats (# for sharp keys, b for flats)
     - if mode not to stop then color notes green good / red bad
     - add select list for people to choose their device for their particular 'USB ' cable
     - add back the bass instrument 4,5,6 string range helper
+    - learn how to add a simple backend in docker
 */
