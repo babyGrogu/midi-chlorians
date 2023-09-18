@@ -40,8 +40,8 @@ let roll, measure, hiddenTic, beatCtr = 0;
 
 let quarterNote, quarterNoteFlipped, quarterNoteFlippedG, quarterNoteFlippedF,quarterNoteFlippedE, quarterNoteFlippedD, quarterNoteFlippedC, quarterNoteE, quarterNoteD, quarterNoteC, quarterNoteB, tooltip ;
 let targetX, targetZoneWidth;
-let lastRandomNote = {n:-1}; 
-
+let lastNoteGenerated = {n:-1}; 
+let animateNoteFunction = generateRandomNote;
 
 // create staff
 function initKonva() {
@@ -382,7 +382,7 @@ function renderNote(note) {
       x: mousePos.x + 5,
       y: mousePos.y + 5,
     });
-    tooltip.text(evt.currentTarget.getAttr(NOTE).n);
+    tooltip.text(noteLabelForKey(evt.currentTarget.getAttr(NOTE).n, keys[rcs.key]));
     tooltip.show();
   });
   newNoteK.on('mouseout', function () {
@@ -444,6 +444,11 @@ function releaseNoteAtTarget() {
   }
 }
 
+function showNoteAtTarget() {
+  const konvaNote = findFirstUnplayedKonvaNote();
+  konvaNote.setAttr('visible', true);
+}
+
 function destroyAllNotes() {
   const c = roll.getChildren();
   for (let i=0; i < c.length; i++) {
@@ -467,11 +472,11 @@ function destroyLeftMostNote() {
   }
 }
 
-function chooseAndRenderNote() {
-  let choosenOne = lastRandomNote;
+function generateRandomNote() {
+  let choosenOne = lastNoteGenerated;
   // force the next random note be a different note than the previous value
   let oopsCtr = 0;
-  while (choosenOne.n === lastRandomNote.n) {
+  while (choosenOne.n === lastNoteGenerated.n) {
     const rand = Math.floor(Math.random()*(notesActualInKeyForRange.length));
     choosenOne = notesActualInKeyForRange[rand];
     oopsCtr++;
@@ -480,15 +485,38 @@ function chooseAndRenderNote() {
       break;
     }
   }
-  lastRandomNote = choosenOne;
+  lastNoteGenerated = choosenOne;
+  return choosenOne;
+}
 
-  // add note to staff
-  renderNote(choosenOne);
+function generateAscendingKeyNote() {
+  let n;
+  const keyNotes = notesActualInKeyForRange;
+  // start at first note
+  if (lastNoteGenerated.n === -1) {
+    lastNoteGenerated = keyNotes[0];
+    return lastNoteGenerated;
+  }
+
+  // if the last note was the highest then restart at lowest
+  // else go to next note higher
+  let idx = keyNotes.findIndex(n => n.i === lastNoteGenerated.i);
+  if (idx === keyNotes.length-1) {
+    idx = 0;
+  } else {
+    idx++;
+  }
+  lastNoteGenerated = keyNotes[idx];
+  return lastNoteGenerated;
+}
+
+function testRenderAscendingNotes() {
+  animateNoteFunction = generateAscendingKeyNote;
 }
 
 function testRenderLowestKeyNotes() {
   destroyAllNotes();
-  const firstNoteOfKeyIndex =  notesActualInKeyForRange.findIndex(n => n.n === rcs.key.root);
+  const firstNoteOfKeyIndex = notesActualInKeyForRange.findIndex(n => n.n === rcs.key.root);
   const testNotes = notesActualInKeyForRange.slice(firstNoteOfKeyIndex,firstNoteOfKeyIndex+8);
   testNotes.forEach(n => {
     renderNote(n);
@@ -497,7 +525,7 @@ function testRenderLowestKeyNotes() {
 
 const nlm = {}; // noteLineMap for bass clef
 let octaveLevel = 3;
-const staffLines = 'GFEDCBA'.split('');
+const staffLines = 'GFEDCBA'.split(''); // starting at top G, 3rd line above staff
 for (let i=0,j=0; i<20; i++,j=(j+1)%7) {
   const staffLine = staffLines[j];
   let h = staffLine + '#' + octaveLevel;
@@ -514,7 +542,7 @@ for (let i=0,j=0; i<20; i++,j=(j+1)%7) {
 }
 
 function getStaffLine(note) {
-  let key = rcs.key;
+  let key = keys[rcs.key];
   // handle special corner cases first
   if (
     // in key F# Major or C# Major note F=E# is called E#
@@ -579,11 +607,19 @@ const animateRoll = new Konva.Animation(function (frame) {
       }
     }
 
+  }
+
+  // depending on where last note rendered was maybe create another one
+  if (c && c.length) {
     child = c[c.length-1];
     childX = newX + child.getAttr('x')
     if (childX > 0 && childX <= noteCreateX - noteTotalWidth) {
-      chooseAndRenderNote();
+      const n = animateNoteFunction();
+      renderNote(n);
     }
+  } else {
+    const n = animateNoteFunction();
+    renderNote(n);
   }
 
 
@@ -596,7 +632,7 @@ const animateRoll = new Konva.Animation(function (frame) {
     if (konvaNoteX <= targetLineX) {
       animateRoll.stop();
       if (rcs.tone) {
-        loopPadStart(konvaNote.getAttr(NOTE));
+        loopsStart(konvaNote.getAttr(NOTE));
       }
     }
   }

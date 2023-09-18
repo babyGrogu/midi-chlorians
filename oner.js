@@ -46,7 +46,7 @@ const defaultState = {
   tone: true, // play tone when stopped at target
   releaseWhenHeard: false,
   tone3: false, // play the third
-  tone5: true, // play the fifth
+  tone5: false, // play the fifth
   tone7: false, // play the seventh
   chordOrArpg: 'chord', // the selected tones 3,5,7 as a chord or as an arpegio
   loops: 1,

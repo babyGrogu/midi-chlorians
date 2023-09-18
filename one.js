@@ -50,7 +50,7 @@ let chooseNoteTimer = -1;
 let animationFramesCtr = 0;
 let heardCnt = 0;
 let pitchElem, noteElem, numCorrect, detuneElem, detuneAmount, lastPlayed;
-let loopFreq, loopsCtr, padTimerRestart, padTimerStop, timeoutThird, timeoutFifth, timeoutSeventh;
+let loopNote, loopsCtr, padTimerRestart, padTimerStop, timeoutThird, timeoutFifth, timeoutSeventh;
 let padFreqs = {};
 let inited =  false; // inited doesn't have a UI setting so keeping out of rcs
 
@@ -376,29 +376,31 @@ function pad(freq) {
   padFreqs[freq] = [saw1, saw2, square];
 }
 
-function loopPadStart(note) {
-  let notesActualIndex = note.i
-  if (rcs.octHigher) {
-    notesActualIndex = notesActualIndex + 12;
-  }
-  let f = notesActual[notesActualIndex].f;
-  stopPad(f); // just in case it was running already
+function loopsStart(note) {
+  loopNote = note;
   loopsCtr = rcs.loops;
-  loopFreq = f;
-  loopPadRestart();
+  loopPadStart();
 }
-function loopPadRestart() {
+function loopPadStart() {
+  let loopNoteIndex;
+  if (rcs.octHigher) {
+    loopNoteIndex = loopNote.i + 12;
+  } else {
+    loopNoteIndex = loopNote.i;
+  }
+  const loopFreq = notesActual[loopNoteIndex].f;
+  stopPad(loopFreq); // just in case it was running already
   startPad(loopFreq);
   padTimerRestart = setTimeout(() => {
-    loopPadStop();
+    loopPadStop(loopFreq);
   }, rcs.loopPlayTime);
 }
-function loopPadStop() {
+function loopPadStop(loopFreq) {
   stopPad(loopFreq);
   loopsCtr--;
   if (loopsCtr > 0) {
     padTimerStop = setTimeout(() => {
-      loopPadRestart();
+      loopPadStart();
     }, rcs.loopPauseTime);
   } else if (rcs.listening === NONE) {
     releaseNoteAtTarget();
@@ -490,7 +492,7 @@ function beep() {
 
 // among noteNamesInKey
 function calcIntervalFreq(freq, distanceOfNotesInKey) {
-    // get index of note for loopFreq and get note
+    // get index of note for freq and get note
     const indexOfRoot = notesActual.findIndex(n => n.f === freq);
     const noteOfRoot = notesActual[indexOfRoot];
     if (noteOfRoot === undefined) return -1;
@@ -509,7 +511,6 @@ function initIt() {
   audioContext = new AudioContext();
   startAudioProcessing();
   startKeyBoardListening();
-  chooseAndRenderNote();
 }
 
 function startIt() {
@@ -530,9 +531,11 @@ function startKeyBoardListening() {
   document.addEventListener('keyup', evt => {
     if (evt.key) {
       if (evt.key === ' ') {
-        loopPadRestart();
+        loopPadStart();
       } else if (evt.key === 'n') {
         releaseNoteAtTarget();
+      } else if (evt.key === 's') {
+        showNoteAtTarget();
       } else {
         const note = findFirstUnplayedNote();
         if (note && note.n.toLowerCase().indexOf(evt.key) > -1) {
@@ -547,7 +550,9 @@ function startKeyBoardListening() {
 
 /**
   todo:
-    - when changing keys wipe out current notes and make sure new notes are correct
+    - add option for playing beep on note released
+    - option for only choosing particular random notes in the key like 1,4,5 or 2,3,6
+    - add option for looping ascending/descending notes in key
     - add chromatic (12 keys) (that will change the numberOfNotesInRange settings)
     - try making better pad sounds
     - add saving of stats on simplest use case on browser side
