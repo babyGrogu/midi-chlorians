@@ -10,7 +10,6 @@ const CMD_SET_OCTEQ = 'OCT_EQ';
 const CMD_SET_OCT_HIGHER = 'OCT_HIGHER';
 const CMD_SET_AMP = 'AMP';
 const CMD_SET_HIDE = 'HIDE';
-const CMD_SET_INST = 'INST';
 const CMD_SET_KEY = 'KEY';
 const CMD_SET_VELOCITY = 'VELOCITY';
 const CMD_SET_TONE = 'TONE';
@@ -25,6 +24,13 @@ const CMD_SET_LOOP_PAUSE_TIME = 'LOOP_PAUSE_TIME';
 const CMD_RANGE_LOW = 'RANGE_LOW';
 const CMD_RANGE_HIGH = 'RANGE_HIGH';
 const CMD_SET_PLAY_CNT_REQ = 'PLAY_CNT_REQ';
+const CMD_SET_BEEP = 'BEEP';
+const CMD_SET_FUNC = 'FUNC';
+const CMD_SET_SKIP = 'SKIP';
+
+const FUNC_RANDO = 'RANDO';
+const FUNC_ASC = 'ASC';
+const FUNC_DESC = 'DESC';
 
 const changeAnimationVelocity = (m) => Math.round(rcs.animationVelocity * m);
 
@@ -53,6 +59,9 @@ const defaultState = {
   loopPlayTime: 800,
   loopPauseTime: 200,
   heardCntReq: 23,
+  beep: true,
+  func: FUNC_RANDO,
+  skip: {},
 };
 const LOCAL_STORAGE_KEY = 'babyGrogu';
 const localStoreData = JSON.parse(window.localStorage.getItem(LOCAL_STORAGE_KEY));
@@ -64,13 +73,28 @@ const initialState = {...defaultState, ...changes};
 
 calculateLowHighRange(initialState);
 calculateNotesForKey(initialState);
+setNoteFunction(initialState);
 
 function findChangesFromDefault(obj) {
   const c = {};
   for (const [k, v] of Object.entries(defaultState)) {
-    const lsdv = obj[k];
-    if (lsdv !== undefined && lsdv !== v) {
-      c[k] = lsdv;
+    const rscV = obj[k];
+    if (typeof v === 'object') {
+      // following works for objects now, not yet for arrays
+      if (Object.keys(v).length !== Object.keys(rscV).length) {
+        c[k] = {...rscV};
+        break; // no need to find other changes, just swap it
+      } else {
+        for (const [k2, v2] of Object.entries(v)) {
+          const rscV2 = rscV[k2];
+          if (rscV2 !== undefined && rscV2 !== v2) {
+            c[k] = {...rscV2};
+            break; // no need to find other changes, just swap it
+          }
+        }
+      }
+    } else if (rscV !== undefined && rscV !== v) {
+      c[k] = rscV;
     }
   }
   return c;
@@ -194,26 +218,6 @@ function renderKeysForKeySelection() {
   ));
 }
 
-function renderNotesForKey(k) {
-  return noteNamesInKey.map((n,i) => ( <span key={i}>{noteLabelForKey(n,k)} </span> ));
-  //return noteNamesInKey.map((n,i) => ( <span key={i}>&nbsp;&nbsp;&nbsp;&nbsp;<input type="checkbox" id={'noteInKeyCheck' + n} value={'noteInKeyCheck' + n} onChange={e => console.log('noteInKeyChecked ' + n)} /><span>{noteLabelForKey(n,k)}</span></span> ));
-}
-
-// does not handle nested objects, keep rcs flat
-function changesFromDefaults(current) {
-  if (current === undefined) return null;
-  let changed = {};
-  for (const k of Object.keys(defaultState)) {
-    if (defaultState[k] !== current[k] && current[k] !== undefined) {
-      changed[k] = current[k];
-    }
-  }
-  if (Object.keys(changed).length) {
-    return changed;
-  }
-  return null;
-}
-
 
 function controlsReducer(state, action) {
   let newState = {};
@@ -224,10 +228,13 @@ function controlsReducer(state, action) {
       return state;
     case (CMD_RESET):
       state = defaultState;
+      calculateLowHighRange(state);
+      calculateNotesForKey(state);
+      setNoteFunction(state);
       action.target.blur();
       return state;
     case (CMD_SET_KEY):
-      newState = {...state, key: action.key};
+      newState = {...state, key: action.key, skip: {}};
       calculateNotesForKey(newState);
       action.target.blur(); // remove focus from widget so typing does not change selection
       return newState;
@@ -241,6 +248,11 @@ function controlsReducer(state, action) {
       newState = {...state, rangeHigh: action.high};
       calculateLowHighRange(newState);
       calculateNotesForKey(newState);
+      action.target.blur();
+      return newState;
+    case (CMD_SET_FUNC):
+      newState = {...state, func: action.func};
+      setNoteFunction(newState);
       action.target.blur();
       return newState;
     case (CMD_SET_INPUT):
@@ -285,11 +297,19 @@ function controlsReducer(state, action) {
       return {...state, loopPauseTime: action.loopPauseTime};
     case (CMD_SET_PLAY_CNT_REQ):
       return {...state, heardCntReq: action.heardCntReq };
-    case (CMD_SET_INST):
-      // todo:
-      return state;
+    case (CMD_SET_BEEP):
+      return {...state, beep: action.beep };
+    case (CMD_SET_SKIP):
+      action.target.blur();
+      const {skipNote:skn, skipChecked:skc} = action;
+      if (state.skip[skn] !== undefined && state.skip[skn] === true && skc === false) {
+        delete state.skip[skn];
+        state.skip = {...state.skip};
+      } else {
+        state.skip = {...state.skip, ...{[action.skipNote]: action.skipChecked}};
+      }
+      return {...state};
   }
-  // save to localstore here?
   return state;
 }
 
@@ -313,21 +333,6 @@ const Controls = (props) => {
     <div>
 
       <div>
-        <select id="selectRoot"
-          value={keys.findIndex(k => k.label === keys[rcs.key].label)}
-          onChange={e =>
-            dispatch({
-              command: CMD_SET_KEY,
-              key: parseInt(e.currentTarget.value, 10),
-              target: e.currentTarget
-            })
-          }
-        >{ renderKeysForKeySelection() }</select>
-       <label> key: scale notes</label>
-       <span> { renderNotesForKey(keys[rcs.key]) }</span>
-      </div>
-
-      <div>
         <select id="selectLow" value={rcs.rangeLow}
           onChange={e =>
             dispatch({
@@ -349,9 +354,52 @@ const Controls = (props) => {
               target: e.currentTarget
             })
           }
-        >
         >{ renderNotesForRangeSelection(keys[rcs.key]) }</select>
         <label> highest note </label>
+      </div>
+
+      <div>
+        <select id="selectRoot"
+          value={keys.findIndex(k => k.label === keys[rcs.key].label)}
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_KEY,
+              key: parseInt(e.currentTarget.value, 10),
+              target: e.currentTarget
+            })
+          }
+          >{ renderKeysForKeySelection() }</select>
+        <label> key</label>
+      </div>
+
+      <div>
+        <select id="func" value={rcs.func}
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_FUNC,
+              func: e.currentTarget.value,
+              target: e.currentTarget
+            })
+          }
+        >
+          <option key={0} value={FUNC_RANDO}>Random notes</option>
+          <option key={1} value={FUNC_ASC}>Ascending notes</option>
+          <option key={2} value={FUNC_DESC}>Descending notes</option>
+        </select>
+        <span> { 
+          noteNamesInKey.map((n,i) => (
+            <span key={i}>&nbsp;&nbsp;&nbsp;&nbsp;
+              <input type="checkbox" id={'skip'+i} value={n} disabled={false/*rcs.func !== FUNC_RANDO*/}
+                checked={rcs.skip[n] === undefined} onChange={e => dispatch({
+                  command: CMD_SET_SKIP,
+                  skipChecked: ! e.currentTarget.checked,
+                  skipNote: e.currentTarget.value,
+                  target: e.currentTarget
+                })} />
+              <label htmlFor={'skip'+i}>{noteLabelForKey(n,keys[rcs.key])}</label>
+            </span>
+          ))
+        }</span>
       </div>
 
       <div className="vertSpacer"></div>
@@ -430,6 +478,15 @@ const Controls = (props) => {
           })
         }/>
         <label htmlFor="tone"> Play sound of chord / arpeggio when note reaches the target </label>
+
+        <input type="checkbox" id="beep" checked={rcs.beep} onChange={e =>
+          dispatch({
+            command: CMD_SET_BEEP,
+            beep: e.currentTarget.checked,
+            target: e.currentTarget,
+          })
+        }/>
+        <label htmlFor="beep"> Beep when note released </label>
       </div>
 
       <div>

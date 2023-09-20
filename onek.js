@@ -38,10 +38,9 @@ const TYPE = 'TYPE';
 const TYPE_NOTE = 'TYPE_NOTE';
 let roll, measure, hiddenTic, beatCtr = 0;
 
-let quarterNote, quarterNoteFlipped, quarterNoteFlippedG, quarterNoteFlippedF,quarterNoteFlippedE, quarterNoteFlippedD, quarterNoteFlippedC, quarterNoteE, quarterNoteD, quarterNoteC, quarterNoteB, tooltip ;
+let quarterNote, quarterNoteFlipped, quarterNoteFlippedG, quarterNoteFlippedF,quarterNoteFlippedE, quarterNoteFlippedD, quarterNoteFlippedC, quarterNoteE, quarterNoteD, quarterNoteC, quarterNoteB, tooltip, animateNoteFunction;
 let targetX, targetZoneWidth;
 let lastNoteGenerated = {n:-1}; 
-let animateNoteFunction = generateRandomNote;
 
 // create staff
 function initKonva() {
@@ -439,7 +438,7 @@ function releaseNoteAtTarget() {
     animateRoll.start();
   }
   stopPadAll();
-  if (tone) {
+  if (rcs.tone && rcs.beep) {
     beep();
   }
 }
@@ -472,42 +471,84 @@ function destroyLeftMostNote() {
   }
 }
 
-function generateRandomNote() {
-  let choosenOne = lastNoteGenerated;
-  // force the next random note be a different note than the previous value
-  let oopsCtr = 0;
-  while (choosenOne.n === lastNoteGenerated.n) {
-    const rand = Math.floor(Math.random()*(notesActualInKeyForRange.length));
-    choosenOne = notesActualInKeyForRange[rand];
-    oopsCtr++;
-    if (oopsCtr === 100) {
-      console.warning('choosing random note stuck in loop');
-      break;
-    }
+function filterUserChosenNotes(a) {
+  // remove notes the user unchecks from the key
+  if (Object.keys(rcs.skip).length) {
+    a = a.filter(n => rcs.skip[n.n] === undefined);
   }
-  lastNoteGenerated = choosenOne;
-  return choosenOne;
+  return a;
+}
+
+function generateRandomNote() {
+  // available notes from key
+  let available = [...notesActualInKeyForRange];
+  available = filterUserChosenNotes(available);
+
+  // remove the last note to keep it interesting
+  if (lastNoteGenerated.n !== -1) {
+    const ind = available.findIndex(n => n.i === lastNoteGenerated.i);
+    available.splice(ind, 1);
+  }
+
+  // pick a note
+  const rand = Math.floor(Math.random()*(available.length));
+  lastNoteGenerated = available[rand];
+  return lastNoteGenerated;
 }
 
 function generateAscendingKeyNote() {
-  let n;
-  const keyNotes = notesActualInKeyForRange;
-  // start at first note
+  // available notes from key
+  let available = [...notesActualInKeyForRange];
+  available = filterUserChosenNotes(available);
+  // start at first note if no previous notes
   if (lastNoteGenerated.n === -1) {
-    lastNoteGenerated = keyNotes[0];
+    lastNoteGenerated = available[0];
     return lastNoteGenerated;
   }
-
   // if the last note was the highest then restart at lowest
   // else go to next note higher
-  let idx = keyNotes.findIndex(n => n.i === lastNoteGenerated.i);
-  if (idx === keyNotes.length-1) {
+  let idx = available.findIndex(n => n.i === lastNoteGenerated.i);
+  if (idx === available.length-1) {
     idx = 0;
   } else {
     idx++;
   }
-  lastNoteGenerated = keyNotes[idx];
+  lastNoteGenerated = available[idx];
   return lastNoteGenerated;
+}
+
+function generateDescendingKeyNote() {
+  // available notes from key
+  let available = [...notesActualInKeyForRange];
+  available = filterUserChosenNotes(available);
+  // start at last note if no previous notes
+  if (lastNoteGenerated.n === -1) {
+    lastNoteGenerated = available[available.length-1];
+    return lastNoteGenerated;
+  }
+
+  // if the last note was the lowest then restart at highest
+  // else go to next lower higher
+  let idx = available.findIndex(n => n.i === lastNoteGenerated.i);
+  if (idx === 0) {
+    idx = available.length-1;
+  } else {
+    idx--;
+  }
+  lastNoteGenerated = available[idx];
+  return lastNoteGenerated;
+}
+
+function setNoteFunction(state) {
+  if (state.func === FUNC_RANDO) {
+    animateNoteFunction = generateRandomNote;
+  }
+  if (state.func === FUNC_ASC) {
+    animateNoteFunction = generateAscendingKeyNote;
+  }
+  if (state.func === FUNC_DESC) {
+    animateNoteFunction = generateDescendingKeyNote;
+  }
 }
 
 function testRenderAscendingNotes() {

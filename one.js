@@ -483,7 +483,7 @@ function beep() {
 
   const beep = audioContext.createOscillator();
   beep.type = "sine";
-  beep.frequency.value = 404;
+  beep.frequency.value = 300;
   beep.connect(beepGain);
   const now = audioContext.currentTime;
   beep.start(now);
@@ -547,32 +547,3 @@ function startKeyBoardListening() {
   });
 }
 
-
-/**
-  todo:
-    - add option for playing beep on note released
-    - option for only choosing particular random notes in the key like 1,4,5 or 2,3,6
-    - add option for looping ascending/descending notes in key
-    - add chromatic (12 keys) (that will change the numberOfNotesInRange settings)
-    - try making better pad sounds
-    - add saving of stats on simplest use case on browser side
-    - add manipulation of random notes based on worst performing notes
-    - handle resizing of window bigger and smaller from left and right and correct note handling
-    - create UI for simplest use case
-      - means adding konva sharps and flats (# for sharp keys, b for flats)
-    - add spectro like this https://www.youtube.com/watch?v=eEeUFB1iIDo
-    - add bass clef and key items
-    - put whole thing into web tool chain
-       then konva can be used in react if that is ever needed
-    - add volume for roots, 3rds, 5ths, 7ths
-    - add natural MINOR 15 scales (back 3 half steps from major, that is relative/natural minor)
-    - add melodic MINOR 15 scales
-    - add notes higher on the bass clef (beyond fret 12)
-    - add higher notes 9th? 11th? for chords
-    - add harmonic MINOR 15 scales
-    - add staff and key signature on staff
-    - if mode not to stop then color notes green good / red bad
-    - add select list for people to choose their device for their particular 'USB ' cable
-    - add back the bass instrument 4,5,6 string range helper
-    - learn how to add a simple backend in docker
-*/
