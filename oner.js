@@ -65,11 +65,7 @@ const defaultState = {
 };
 const LOCAL_STORAGE_KEY = 'babyGrogu';
 const localStoreData = JSON.parse(window.localStorage.getItem(LOCAL_STORAGE_KEY));
-let changes;
-if (localStoreData) {
-  changes = findChangesFromDefault(localStoreData);
-}
-const initialState = {...defaultState, ...changes};
+const initialState = {...defaultState, ...localStoreData};
 
 calculateLowHighRange(initialState);
 calculateNotesForKey(initialState);
@@ -568,7 +564,7 @@ const Controls = (props) => {
 
         <span className="horizSpacer"></span>
 
-        <input id="loopPlayTime" type="range" value={rcs.loopPlayTime} min="100" max="5000"onChange={e =>
+        <input id="loopPlayTime" type="range" value={rcs.loopPlayTime} min="100" max="4000"onChange={e =>
           dispatch({
             command: CMD_SET_LOOP_PLAY_TIME,
             loopPlayTime: parseInt(e.currentTarget.value,10),
@@ -578,7 +574,7 @@ const Controls = (props) => {
 
         <span className="horizSpacer"></span>
 
-        <input id="loopPauseTime" type="range" value={rcs.loopPauseTime} min="100" max="5000" onChange={e =>
+        <input id="loopPauseTime" type="range" value={rcs.loopPauseTime} min="4" max="4000" onChange={e =>
           dispatch({
             command: CMD_SET_LOOP_PAUSE_TIME,
             loopPauseTime: parseInt(e.currentTarget.value,10),

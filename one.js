@@ -299,9 +299,9 @@ function createsNotesArrays() {
 
   function roundTo(n, digits) {
       if (digits === undefined) { digits = 0; }
-      var multiplicator = Math.pow(10, digits);
-      n = parseFloat((n * multiplicator).toFixed(11));
-      return Math.round(n) / multiplicator;
+      const multiplier = Math.pow(10, digits);
+      n = parseFloat((n * multiplier).toFixed(11));
+      return Math.round(n) / multiplier;
   }
 
   // 89 go one note higher so array has the MINIMUM above the last 88th piano note
