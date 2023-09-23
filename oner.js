@@ -57,7 +57,7 @@ const defaultState = {
   chordOrArpg: 'chord', // the selected tones 3,5,7 as a chord or as an arpegio
   loops: 1,
   loopPlayTime: 800,
-  loopPauseTime: 200,
+  loopPauseTime: 0,
   heardCntReq: 23,
   beep: true,
   func: FUNC_RANDO,
@@ -74,23 +74,23 @@ setNoteFunction(initialState);
 function findChangesFromDefault(obj) {
   const c = {};
   for (const [k, v] of Object.entries(defaultState)) {
-    const rscV = obj[k];
+    const rcsV = obj[k]; // rscV is a rcs value
     if (typeof v === 'object') {
       // following works for objects now, not yet for arrays
-      if (Object.keys(v).length !== Object.keys(rscV).length) {
-        c[k] = {...rscV};
+      if (Object.keys(v).length !== Object.keys(rcsV).length) {
+        c[k] = {...rcsV};
         break; // no need to find other changes, just swap it
       } else {
         for (const [k2, v2] of Object.entries(v)) {
-          const rscV2 = rscV[k2];
-          if (rscV2 !== undefined && rscV2 !== v2) {
-            c[k] = {...rscV2};
+          const rcsV = rcsV[k2];
+          if (rcsV !== undefined && rcsV !== v2) {
+            c[k] = {...rcsV};
             break; // no need to find other changes, just swap it
           }
         }
       }
-    } else if (rscV !== undefined && rscV !== v) {
-      c[k] = rscV;
+    } else if (rcsV !== undefined && rcsV !== v) {
+      c[k] = rcsV;
     }
   }
   return c;
@@ -415,7 +415,7 @@ const Controls = (props) => {
       </div>
 
       <div>
-        <input id="heardCntReq" type="range" value={rcs.heardCntReq} disabled={rcs.listening === NONE} min="4" max="100" onChange={e =>
+        <input id="heardCntReq" type="range" value={rcs.heardCntReq} disabled={rcs.listening === NONE} min="1" max="100" onChange={e =>
           dispatch({
             command: CMD_SET_PLAY_CNT_REQ,
             heardCntReq: parseInt(e.currentTarget.value,10),
@@ -506,7 +506,8 @@ const Controls = (props) => {
             target: e.currentTarget,
           })
         }/>
-        <label htmlFor="chord">Chord </label>
+        <label htmlFor="chord">Harmonic (chord)</label>
+        <span className="horizSpacer"></span>
 
         <input type="radio" name="chordOrArpg" id="arpg" value="arpg" disabled={!rcs.tone} checked={rcs.chordOrArpg === 'arpg'} onChange={e =>
           dispatch({
@@ -515,7 +516,7 @@ const Controls = (props) => {
             target: e.currentTarget,
           })
         }/>
-        <label htmlFor="arpg">Arpeggio </label>
+        <label htmlFor="arpg">Melodic (arpeggio) </label>
 
         <div>
           <span className="horizSpacer"></span>
@@ -564,35 +565,36 @@ const Controls = (props) => {
 
         <span className="horizSpacer"></span>
 
-        <input id="loopPlayTime" type="range" value={rcs.loopPlayTime} min="100" max="4000"onChange={e =>
+        <input id="loopPlayTime" type="range" value={rcs.loopPlayTime} min="50" max="2000"onChange={e =>
           dispatch({
             command: CMD_SET_LOOP_PLAY_TIME,
             loopPlayTime: parseInt(e.currentTarget.value,10),
           })
-        } step="100"/>
-        <label htmlFor="loopPlayTime">{rcs.loopPlayTime} loopPlayTime</label>
+        } step="10"/>
+        <label htmlFor="loopPlayTime">{rcs.loopPlayTime} loop play time</label>
 
         <span className="horizSpacer"></span>
 
-        <input id="loopPauseTime" type="range" value={rcs.loopPauseTime} min="4" max="4000" onChange={e =>
+        <input id="loopPauseTime" type="range" value={rcs.loopPauseTime} min="0" max="2000"
+        onChange={e =>
           dispatch({
             command: CMD_SET_LOOP_PAUSE_TIME,
             loopPauseTime: parseInt(e.currentTarget.value,10),
           })
-        } step="100"/>
-        <label htmlFor="loopPauseTime">{rcs.loopPauseTime} loopPauseTime</label>
+        } step="10"/>
+        <label htmlFor="loopPauseTime">{rcs.loopPauseTime} pause between loops</label>
       </div>
 
       <div className="vertSpacer"></div>
 
       <div>
-        <input id="velocity" type="range" value={rcs.animationVelocity} min="10" max="800"
+        <input id="velocity" type="range" value={rcs.animationVelocity} min="10" max="1000"
           onChange={e =>
             dispatch({
               command: CMD_SET_VELOCITY,
               vel: parseInt(e.currentTarget.value,10),
             })} />
-        <label>{rcs.animationVelocity} staff note speed </label>
+        <label htmlFor="velocity">{rcs.animationVelocity} staff note speed </label>
       </div>
 
       <div className="vertSpacer"></div>

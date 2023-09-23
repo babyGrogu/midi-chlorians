@@ -50,7 +50,7 @@ let chooseNoteTimer = -1;
 let animationFramesCtr = 0;
 let heardCnt = 0;
 let pitchElem, noteElem, numCorrect, detuneElem, detuneAmount, lastPlayed;
-let loopNote, loopsCtr, padTimerRestart, padTimerStop, timeoutThird, timeoutFifth, timeoutSeventh;
+let loopNote, loopsCtr, padTimerStart, padTimerStop, timeoutThird, timeoutFifth, timeoutSeventh;
 let padFreqs = {};
 let inited =  false; // inited doesn't have a UI setting so keeping out of rcs
 
@@ -108,6 +108,8 @@ function startAudioProcessing() {
 
   // get an audio context
   audioContext = new AudioContext();
+  // would this make it faster?
+  //audioContext = new AudioContext({sampleRate:8*1024});
 
   // new version of getUserMedia from 
   // https://github.com/cwilso/PitchDetect/commit/dcae53dc491e42806870abf5588f6f46df56a9a5
@@ -391,20 +393,20 @@ function loopPadStart() {
   const loopFreq = notesActual[loopNoteIndex].f;
   stopPad(loopFreq); // just in case it was running already
   startPad(loopFreq);
-  padTimerRestart = setTimeout(() => {
+  padTimerStart = setTimeout(() => {
     loopPadStop(loopFreq);
   }, rcs.loopPlayTime);
 }
 function loopPadStop(loopFreq) {
   stopPad(loopFreq);
   loopsCtr--;
+  padTimerStop = setTimeout(() => {
   if (loopsCtr > 0) {
-    padTimerStop = setTimeout(() => {
       loopPadStart();
-    }, rcs.loopPauseTime);
   } else if (rcs.listening === NONE) {
     releaseNoteAtTarget();
   }
+  }, rcs.loopPauseTime);
 }
 
 function startPad(freq) {
@@ -470,7 +472,7 @@ function stopPadAll() {
     stopPad(freq);
   }
 
-  clearTimeout(padTimerRestart);
+  clearTimeout(padTimerStart);
   clearTimeout(padTimerStop);
   clearTimeout(timeoutThird);
   clearTimeout(timeoutFifth);

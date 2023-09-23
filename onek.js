@@ -1,6 +1,6 @@
 
 // first need to create a stage
-let margin = 8;
+let margin = 30;
 let width = window.innerWidth-(2*margin);
 //let height = window.innerHeight;
 let height = 220;

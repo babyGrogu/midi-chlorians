@@ -20,18 +20,43 @@
       #lastPlayed { font-size: 23px; }
       .vertSpacer { padding: 8px 0 0 0; }
       .horizSpacer { padding: 0 16px 0 0; }
+      #layout {
+        margin: 20px 20px 0 20px;
+        display: grid;
+        grid-template-areas:
+          "staff       staff"
+          "controls realtime"
+          "controls realtime";
+      }
+      #realtime {
+        grid-area: realtime;
+      }
+      #reactRoot {
+        grid-area: controls;
+      }
+      #konvaRoot {
+        grid-area: staff;
+      }
       input[type="number"] { width: 48px; }
       label { font-size: larger; }
     </style>
   </head>
   <body>
+    <section id="layout">
+      <realtime>
     <div><span id="pitch">--</span>Hz</div>
-    <div><span id="note">--</span></div>   
-    <div><span id="numCorrect">--</span></div>   
-    <div id="detune"><span id="detune_amt">--</span><span id="flat">cents &#9837;</span><span id="sharp">cents &#9839;</span></div>
-    <div><span id="lastPlayed">&nbsp;</span></div>   
-    <div id="reactRoot"></div>
-    <div id="konvaRoot"></div>
+        <div id="note">--</div>
+        <div id="numCorrect">--</div>   
+        <div id="lastPlayed">&nbsp;</div>   
+        <div id="detune">
+          <span id="detune_amt">--</span>
+          <span id="flat">cents &#9837;</span>
+          <span id="sharp">cents &#9839;</span>
+        </div>
+      </realtime>
+      <controls id="reactRoot"></controls>
+      <staff id="konvaRoot"></staff>
+    </section>
     <div style="display: none;">
      <ul>
        <li> staff is a bass clef (not a treble clef)
