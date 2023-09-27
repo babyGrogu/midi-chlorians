@@ -13,38 +13,45 @@ const notes = [
   'B=Cb'    // 11
 ];
 const keys = [
-  {label: 'C Major', root: notes[0]},   // no sharps or flats
-  {label: 'G Major', root: notes[7]},   // sharps
-  {label: 'D Major', root: notes[2]},
-  {label: 'A Major', root: notes[9]},
-  {label: 'E Major', root: notes[4]},
-  {label: 'B Major', root: notes[11]},
-  {label: 'F# Major', root: notes[6]},
-  {label: 'C# Major', root: notes[1]},
-  {label: 'F Major', root: notes[5]},   // flats
-  {label: 'Bb Major', root: notes[10]},
-  {label: 'Eb Major', root: notes[3]},
-  {label: 'Ab Major', root: notes[8]},
-  {label: 'Db Major', root: notes[1]},
-  {label: 'Gb Major', root: notes[6]},
-  {label: 'Cb Major', root: notes[11]},
-  // todo: add minor keys
+  {label: 'C Major', root: notes[0], i:0},   // major, no sharps or flats
+  {label: 'G Major', root: notes[7], i:1},   // major sharps
+  {label: 'D Major', root: notes[2], i:2},
+  {label: 'A Major', root: notes[9], i:3},
+  {label: 'E Major', root: notes[4], i:4},
+  {label: 'B Major', root: notes[11], i:5},
+  {label: 'F# Major', root: notes[6], i:6},
+  {label: 'C# Major', root: notes[1], i:7},
+  {label: 'F Major', root: notes[5], i:8},   // major flats
+  {label: 'Bb Major', root: notes[10], i:9},
+  {label: 'Eb Major', root: notes[3], i:10},
+  {label: 'Ab Major', root: notes[8], i:11},
+  {label: 'Db Major', root: notes[1], i:12},
+  {label: 'Gb Major', root: notes[6], i:13},
+  {label: 'Cb Major', root: notes[11], i:14},
+
+  {label: 'A Minor', root: notes[9], i:15},  // minor, no sharps or flats
+  {label: 'E Minor', root: notes[4], i:16},  // minor sharps
+  {label: 'B Minor', root: notes[11], i:17},
+  {label: 'F# Minor', root: notes[6], i:18},
+  {label: 'C# Minor', root: notes[1], i:19},
+  {label: 'G# Minor', root: notes[8], i:20},
+  {label: 'D# Minor', root: notes[3], i:21},
+  {label: 'A# Minor', root: notes[10], i:22},
+  {label: 'D Minor', root: notes[2], i:23},  // minor flats
+  {label: 'G Minor', root: notes[7], i:24},
+  {label: 'C Minor', root: notes[0], i:25},
+  {label: 'F Minor', root: notes[5], i:26},
+  {label: 'Bb Minor', root: notes[10], i:27},
+  {label: 'Eb Minor', root: notes[3], i:28},
+  {label: 'Ab Minor', root: notes[8], i:29},
 ];
-keys.forEach((k,i) => k.i = i); // number the keys with i
 
 //const CLEF_BASS = 'bass';
 //const CLEF_TREBLE = 'treble';
-//const INST_BASS4 = 'bass4';
-//const INST_BASS5 = 'bass5';
-//const INST_BASS6 = 'bass6';
-//const INST_GUITAR = 'guitar';
-//const INST_PIANO = 'piano';
 const KEY_MAJOR_HALF_STEPS = [2,2,1,2,2,2,1];
 const KEY_MINOR_HALF_STEPS = [2,1,2,2,1,2,2]
 const NONE = 'none';
 
-//let clef = CLEF_BASS;
-//let inst = INST_BASS4;
 let keySteps = KEY_MAJOR_HALF_STEPS;
 let chooseNoteTimer = -1;
 let animationFramesCtr = 0;
@@ -55,7 +62,7 @@ let padFreqs = {};
 let inited =  false; // inited doesn't have a UI setting so keeping out of rcs
 
 // arrays of notes
-let notesActual=[], noteNamesInKey, notesActualInKeyForRange=[], notesMinimum=[];
+let notesActual=[], noteNamesInKey, notesMinimum=[];
 
 // webaudio variables
 let analyser = null;
@@ -257,7 +264,7 @@ function updatePitch() {
           if (heardCnt >= rcs.heardCntReq) {
             lastPlayed.innerHTML = 'Correctly played: ' + noteHeard.n +
               ' ' + firstUnplayedNote.l + '=' + noteHeard.l;
-            if (releaseWhenHeard || (tone && loopsCtr === 0)){
+            if (tone && loopsCtr === 0){
               releaseNoteAtTarget();
             }
           }
@@ -384,6 +391,7 @@ function loopsStart(note) {
   loopPadStart();
 }
 function loopPadStart() {
+  if (!loopNote) return;
   let loopNoteIndex;
   if (rcs.octHigher) {
     loopNoteIndex = loopNote.i + 12;
@@ -401,11 +409,11 @@ function loopPadStop(loopFreq) {
   stopPad(loopFreq);
   loopsCtr--;
   padTimerStop = setTimeout(() => {
-  if (loopsCtr > 0) {
+    if (loopsCtr > 0) {
       loopPadStart();
-  } else if (rcs.listening === NONE) {
-    releaseNoteAtTarget();
-  }
+    } else if (rcs.listening === NONE) {
+      releaseNoteAtTarget();
+    }
   }, rcs.loopPauseTime);
 }
 

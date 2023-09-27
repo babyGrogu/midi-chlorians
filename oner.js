@@ -21,8 +21,8 @@ const CMD_SET_CHORD_OR_ARPG = 'CHORD_OR_ARPG';
 const CMD_SET_LOOPS = 'LOOPS';
 const CMD_SET_LOOP_PLAY_TIME = 'LOOP_PLAY_TIME';
 const CMD_SET_LOOP_PAUSE_TIME = 'LOOP_PAUSE_TIME';
-const CMD_RANGE_LOW = 'RANGE_LOW';
-const CMD_RANGE_HIGH = 'RANGE_HIGH';
+const CMD_SET_RANGE_LOW = 'RANGE_LOW';
+const CMD_SET_RANGE_HIGH = 'RANGE_HIGH';
 const CMD_SET_PLAY_CNT_REQ = 'PLAY_CNT_REQ';
 const CMD_SET_BEEP = 'BEEP';
 const CMD_SET_FUNC = 'FUNC';
@@ -32,25 +32,18 @@ const FUNC_RANDO = 'RANDO';
 const FUNC_ASC = 'ASC';
 const FUNC_DESC = 'DESC';
 
-const changeAnimationVelocity = (m) => Math.round(rcs.animationVelocity * m);
-
-let rcs = {}; // reducer controlled state
-let notesActualLowHighRange = [];
-
-// keep rcs flat (no nested objects) so the simple localStorage of ui settings will work
+// keep defaultState to one level of nested objects so the localStorage of ui settings will work
 const defaultState = {
   listening: NONE,
   octEq: false,
   octHigher: false,
   amp: false,
   hide: false,
-  //instrument: INST_BASS4,
   key: 0, // 0 = C major
-  rangeLow: 7,  // value of notesActual for BASS4
-  rangeHigh: 34, // value of notesActual for BASS4
+  rangeLow: 2,
+  rangeHigh: 34,
   animationVelocity: 420,
   tone: true, // play tone when stopped at target
-  releaseWhenHeard: false,
   tone3: false, // play the third
   tone5: false, // play the fifth
   tone7: false, // play the seventh
@@ -59,7 +52,7 @@ const defaultState = {
   loopPlayTime: 800,
   loopPauseTime: 0,
   heardCntReq: 23,
-  beep: true,
+  beep: false,
   func: FUNC_RANDO,
   skip: {},
 };
@@ -67,16 +60,22 @@ const LOCAL_STORAGE_KEY = 'babyGrogu';
 const localStoreData = JSON.parse(window.localStorage.getItem(LOCAL_STORAGE_KEY));
 const initialState = {...defaultState, ...localStoreData};
 
-calculateLowHighRange(initialState);
+let rcs = {}; // reducer controlled state
+let notesActualInKeyForRange = [];
+
 calculateNotesForKey(initialState);
 setNoteFunction(initialState);
 
+
+
+
+// following works for objects now, not yet for arrays
 function findChangesFromDefault(obj) {
   const c = {};
   for (const [k, v] of Object.entries(defaultState)) {
     const rcsV = obj[k]; // rscV is a rcs value
     if (typeof v === 'object') {
-      // following works for objects now, not yet for arrays
+      // works for hashs, not yet for arrays
       if (Object.keys(v).length !== Object.keys(rcsV).length) {
         c[k] = {...rcsV};
         break; // no need to find other changes, just swap it
@@ -96,23 +95,13 @@ function findChangesFromDefault(obj) {
   return c;
 }
 
-// changing keys should not effect range
-// a control for instruments could affect the ranges
-// a control for frets could affect the ranges
-function calculateLowHighRange(state) {
-    // clone
-    notesActualLowHighRange = [...notesActual];
-
-    // find rangeLow's corresponding actual note using .i
-    const li = notesActualLowHighRange.findIndex(n => n.i === state.rangeLow);
-    const hi = notesActualLowHighRange.findIndex(n => n.i === state.rangeHigh);
-    notesActualLowHighRange = notesActualLowHighRange.slice(li, hi+1); 
-}
-
 function calculateNotesForKey(state) {
-  // figure out what notes are in the user specifed key
-  // NOTE: noteNamesInKey might be better to be the note object rather than just the
-  // names. If using notes that would make the
+  if (state.key < 15) {
+    keySteps = KEY_MAJOR_HALF_STEPS;
+  } else {
+    keySteps = KEY_MINOR_HALF_STEPS;
+  }
+  // figure out what notes names are in the user specifed key
   noteNamesInKey = [];
   for (let i = notes.indexOf(keys[state.key].root), j = 0;
        j < keySteps.length;
@@ -121,8 +110,10 @@ function calculateNotesForKey(state) {
     noteNamesInKey.push(noteInKey);
   }
 
-  // for this key find the notes in range
+  // for the key note names, find the notes in range
   notesActualInKeyForRange.length = 0;
+
+  const notesActualLowHighRange = notesActual.slice(state.rangeLow, state.rangeHigh+1); 
   notesActualLowHighRange.forEach(n => {
     if (noteNamesInKey.indexOf(n.n) > -1) {
       notesActualInKeyForRange.push(n);
@@ -130,68 +121,71 @@ function calculateNotesForKey(state) {
   });
 }
 
-function noteLabelForRange(str, key) {
-  function sp(s, ss, i) {
-    return (s.indexOf(ss) > -1) ? s.split(ss)[i]: str;
-  }
-  if (key.i === 0 ||
-      key.i === 1 ||
-      key.i === 2 ||
-      key.i === 3 ||
-      key.i === 4 ||
-      key.i === 5 ||
-      key.i === 6 ||
-      key.i === 7) {
-    str = sp(str, '=', 0);
+function sp(s, ss, i) {
+  return (s.indexOf(ss) > -1) ? s.split(ss)[i]: s;
+}
+// input strings are note names from notesActual that are in the range
+function noteLabelForRange(str) {
+  str = sp(str, '=', 0);
+  if (rcs.key < 8 || (rcs.key > 14 && rcs.key < 23)) {
     str = sp(str, '/', 1);
-  }
-  else if (key.i === 8 ||
-           key.i === 9 ||
-           key.i === 10 ||
-           key.i === 11 ||
-           key.i === 12 ||
-           key.i === 13 ||
-           key.i === 14) {
-    str = sp(str, '=', 0);
+  } else {
     str = sp(str, '/', 0);
   }
   return str;
 }
 
-function noteLabelForKey(str, key) {
-  function sp(s, ss, i) {
-    return (s.indexOf(ss) > -1) ? s.split(ss)[i]: str;
-  }
-  // rewrite this using the logic in onek.js getStaffLine
-  if (key.i === 0 ||
-      key.i === 1 ||
-      key.i === 2 ||
-      key.i === 3 ||
-      key.i === 4 ||
-      key.i === 5 ) {
+function noteLabelForKey(str) {
+  const ki = rcs.key;
+  if (ki === 0 || // majors
+      ki === 1 ||
+      ki === 2 ||
+      ki === 3 ||
+      ki === 4 ||
+      ki === 5 ||
+      ki === 15 ||  // minors
+      ki === 16 ||
+      ki === 17 ||
+      ki === 18 ||
+      ki === 19 ||
+      ki === 20
+  ) {
     str = sp(str, '=', 0);
     str = sp(str, '/', 1);
   } else if ( // handle enharmonic special cases
-      key.i === 6 ||    //F#
-      key.i === 7 ) {    //C#
+      ki === 6 ||    //F#
+      ki === 7 ||    //C#
+      ki === 21 ||   //D#
+      ki === 22      //A#
+    ) {
     if (str === notes[11]) {
-      str = sp(str, '=', 0);     // in key C# note C=B# is called B#
+      str = sp(str, '=', 0); // in key F# note B=C# is called B
     } else {
-      str = sp(str, '=', 1);     // in key F# note F=E# is called E#
+      str = sp(str, '=', 1); // otherwise use the sharps
     }
     str = sp(str, '/', 1);
   }
-  else if (key.i === 8 ||
-           key.i === 9 ||
-           key.i === 10 ||
-           key.i === 11 ||
-           key.i === 12) {
+  else if (ki === 8 ||
+           ki === 9 ||
+           ki === 10 ||
+           ki === 11 ||
+           ki === 12 ||
+           ki === 23 ||
+           ki === 24 ||
+           ki === 25 ||
+           ki === 26 ||
+           ki === 27
+  ) {
     str = sp(str, '=', 0);
     str = sp(str, '/', 0);
   } else if ( // handle enharmonic special cases
-           key.i === 13 ||
-           key.i === 14) {
-    if (str === notes[11] /*for Gb*/ || str === notes[4] /*for Cb*/) {
+           ki === 13 ||   // Gb Major
+           ki === 14 ||   // Cb Major
+           ki === 28 ||   // Eb Minor
+           ki === 29      // Ab Minor
+    ) {  
+    if (str === notes[11] /*for Gb Major and Eb Minor and Ab Minor*/ ||
+        str === notes[4] /*for Cb Major and Ab Minor*/) {
       str = sp(str, '=', 1);
     } else {
       str = sp(str, '=', 0);
@@ -201,16 +195,16 @@ function noteLabelForKey(str, key) {
   return str;
 }
 
-function renderNotesForRangeSelection(key) {
+function renderNoteRangeForClef() {
   const notesForRangeSelectors = notesActual.slice(2, 34+1); // 2=B0 , 34=G3
   return notesForRangeSelectors.map(n => {
-    return (<option key={n.i} value={n.i}>{noteLabelForRange(n.n, key) + ' ' + n.l}</option>);
+    return (<option key={n.i} value={n.i}>{noteLabelForRange(n.n) + ' ' + n.l}</option>);
   });
 }
 
-function renderKeysForKeySelection() {
+function renderKeysForKeySelection(type) {
   return keys.map((k,i) => (
-    <option key={i} value={i} label={k.label} />
+    (k.label.indexOf(type) > 0) && <option key={'ky'+i} value={i} label={k.label.split(' ')[0]} />
   ));
 }
 
@@ -223,26 +217,23 @@ function controlsReducer(state, action) {
       action.target.blur();
       return state;
     case (CMD_RESET):
-      state = defaultState;
-      calculateLowHighRange(state);
-      calculateNotesForKey(state);
-      setNoteFunction(state);
+      newState = {...defaultState};
+      calculateNotesForKey(newState);
+      setNoteFunction(newState);
       action.target.blur();
-      return state;
+      return newState;
     case (CMD_SET_KEY):
       newState = {...state, key: action.key, skip: {}};
       calculateNotesForKey(newState);
       action.target.blur(); // remove focus from widget so typing does not change selection
       return newState;
-    case (CMD_RANGE_LOW):
-      newState = {...state, rangeLow: action.low};
-      calculateLowHighRange(newState);
+    case (CMD_SET_RANGE_LOW):
+      newState = {...state, rangeLow: action.low };
       calculateNotesForKey(newState);
       action.target.blur();
       return newState;
-    case (CMD_RANGE_HIGH):
-      newState = {...state, rangeHigh: action.high};
-      calculateLowHighRange(newState);
+    case (CMD_SET_RANGE_HIGH):
+      newState = {...state, rangeHigh: action.high };
       calculateNotesForKey(newState);
       action.target.blur();
       return newState;
@@ -296,7 +287,6 @@ function controlsReducer(state, action) {
     case (CMD_SET_BEEP):
       return {...state, beep: action.beep };
     case (CMD_SET_SKIP):
-      action.target.blur();
       const {skipNote:skn, skipChecked:skc} = action;
       if (state.skip[skn] !== undefined && state.skip[skn] === true && skc === false) {
         delete state.skip[skn];
@@ -304,6 +294,7 @@ function controlsReducer(state, action) {
       } else {
         state.skip = {...state.skip, ...{[action.skipNote]: action.skipChecked}};
       }
+      action.target.blur();
       return {...state};
   }
   return state;
@@ -329,32 +320,6 @@ const Controls = (props) => {
     <div>
 
       <div>
-        <select id="selectLow" value={rcs.rangeLow}
-          onChange={e =>
-            dispatch({
-              command: CMD_RANGE_LOW,
-              low: parseInt(e.currentTarget.value,10),
-              target: e.currentTarget,
-            })
-          }
-        >{ renderNotesForRangeSelection(keys[rcs.key]) }</select>
-        <label> lowest note </label>
-      </div>
-
-      <div>
-        <select id="selectHigh" value={rcs.rangeHigh}
-          onChange={e =>
-            dispatch({
-              command: CMD_RANGE_HIGH,
-              high: parseInt(e.currentTarget.value,10),
-              target: e.currentTarget
-            })
-          }
-        >{ renderNotesForRangeSelection(keys[rcs.key]) }</select>
-        <label> highest note </label>
-      </div>
-
-      <div>
         <select id="selectRoot"
           value={keys.findIndex(k => k.label === keys[rcs.key].label)}
           onChange={e =>
@@ -364,9 +329,52 @@ const Controls = (props) => {
               target: e.currentTarget
             })
           }
-          >{ renderKeysForKeySelection() }</select>
-        <label> key</label>
+          >
+          <optgroup label="Major Keys">{ renderKeysForKeySelection('Major') }</optgroup>
+          <optgroup label="Minor Keys">{ renderKeysForKeySelection('Minor') }</optgroup>
+        </select>
+        <label> {(rcs.key < 15) ? 'Major' : 'Minor'}</label>
+        <span> { 
+          noteNamesInKey.map((n,i) => (
+            <span key={'sk'+i}>&nbsp;&nbsp;&nbsp;&nbsp;
+              <input type="checkbox" id={'skip'+i} value={n} disabled={false/*rcs.func !== FUNC_RANDO*/}
+                checked={rcs.skip[n] === undefined} onChange={e => dispatch({
+                  command: CMD_SET_SKIP,
+                  skipChecked: ! e.currentTarget.checked,
+                  skipNote: e.currentTarget.value,
+                  target: e.currentTarget
+                })} />
+              <label htmlFor={'skip'+i}>{noteLabelForKey(n)}</label>
+            </span>
+          ))
+        }</span>
       </div>
+      <div className="vertSpacer"></div>
+
+      <div>
+        <select id="selectLow" value={rcs.rangeLow}
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_RANGE_LOW,
+              low: parseInt(e.currentTarget.value,10),
+              target: e.currentTarget,
+            })
+          }
+        >{ renderNoteRangeForClef() }</select>
+        <label> lowest note </label>
+        <span className="horizSpacer"></span>
+        <select id="selectHigh" value={rcs.rangeHigh}
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_RANGE_HIGH,
+              high: parseInt(e.currentTarget.value,10),
+              target: e.currentTarget
+            })
+          }
+        >{ renderNoteRangeForClef() }</select>
+        <label> highest note </label>
+      </div>
+      <div className="vertSpacer"></div>
 
       <div>
         <select id="func" value={rcs.func}
@@ -382,20 +390,6 @@ const Controls = (props) => {
           <option key={1} value={FUNC_ASC}>Ascending notes</option>
           <option key={2} value={FUNC_DESC}>Descending notes</option>
         </select>
-        <span> { 
-          noteNamesInKey.map((n,i) => (
-            <span key={i}>&nbsp;&nbsp;&nbsp;&nbsp;
-              <input type="checkbox" id={'skip'+i} value={n} disabled={false/*rcs.func !== FUNC_RANDO*/}
-                checked={rcs.skip[n] === undefined} onChange={e => dispatch({
-                  command: CMD_SET_SKIP,
-                  skipChecked: ! e.currentTarget.checked,
-                  skipNote: e.currentTarget.value,
-                  target: e.currentTarget
-                })} />
-              <label htmlFor={'skip'+i}>{noteLabelForKey(n,keys[rcs.key])}</label>
-            </span>
-          ))
-        }</span>
       </div>
 
       <div className="vertSpacer"></div>
@@ -434,16 +428,6 @@ const Controls = (props) => {
         <label htmlFor="octavesEqual">Octave notes are treated as equal when played</label>
       </div>
       <div>
-        <input type="checkbox" id="releaseWhenHeard" checked={rcs.releaseWhenHeard} disabled={rcs.listening === NONE} onChange={e =>
-          dispatch({
-            command: CMD_SET_RELEASE_WHEN_HEARD,
-            releaseWhenHeard: e.currentTarget.checked,
-            target: e.currentTarget,
-          })
-        }/>
-        <label htmlFor="releaseWhenHeard">Release note at target when heard/sensed count met, otherwise wait until <br></br>after the "loop number" is done playing AND playCountReq IS MET AGAIN</label>
-      </div>
-      <div>
         <input type="checkbox" id="amp" checked={rcs.amp} checked={rcs.amp}
           disabled={rcs.listening === NONE} onChange={e => dispatch({
             command: CMD_SET_AMP,
@@ -452,15 +436,6 @@ const Controls = (props) => {
           })
         }/>
         <label htmlFor="amp"> Send input from USB cable to computer audio output</label>
-      </div>
-      <div>
-        <input type="checkbox" id="hide" checked={rcs.hide} onChange={e => dispatch({
-            command: CMD_SET_HIDE,
-            hide: e.currentTarget.checked,
-            target: e.currentTarget,
-          })
-        }/>
-        <label htmlFor="hide"> Hide notes until note is released </label>
       </div>
 
       <div className="vertSpacer"></div>
@@ -596,6 +571,15 @@ const Controls = (props) => {
             })} />
         <label htmlFor="velocity">{rcs.animationVelocity} staff note speed </label>
       </div>
+      <div>
+        <input type="checkbox" id="hide" checked={rcs.hide} onChange={e => dispatch({
+            command: CMD_SET_HIDE,
+            hide: e.currentTarget.checked,
+            target: e.currentTarget,
+          })
+        }/>
+        <label htmlFor="hide"> Hide notes on staff until note is released </label>
+      </div>
 
       <div className="vertSpacer"></div>
 
@@ -605,7 +589,7 @@ const Controls = (props) => {
           target: e.currentTarget
         })}>Start</button>
         <span className="horizSpacer"></span>
-        <button onClick={stopIt}>Stop</button>
+        <button onClick={e => { e.currentTarget.blur(); stopIt()}}>Stop</button>
         <span className="horizSpacer"></span>
         <button onClick={e => dispatch({
           command: CMD_RESET,

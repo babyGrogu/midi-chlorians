@@ -586,40 +586,39 @@ function getStaffLine(note) {
   let key = keys[rcs.key];
   // handle special corner cases first
   if (
-    // in key F# Major or C# Major note F=E# is called E#
-    ((key.i === 6 || key.i === 7) && note.n === notes[5]) ||
-    // in key C# Major note C=B# is called B#
-    (key.i === 7 && note.n === notes[0]) ||
-    // in key Cb Major note E=Fb is called Fb
-    (key.i === 14 && note.n === notes[4])) {
+    // E=Fb is called Fb, in key Cb Major or Ab Minor
+    (note.n === notes[4] && (key.i === 14 || key.i === 29)) ||
+    // F=E# is called E# in key F#, C# Major or D#, A# Minor
+    (note.n === notes[5] && (key.i === 6 || key.i === 7 || key.i === 21 || key.i === 22)) ||
+    // C=B# is called B# in key C# Major or A# Minor
+    (note.n === notes[0] && (key.i === 7 || key.i === 22))
+  ) {
     return nlm[note.n.slice(2,4) + note.l]; 
   } else if (
-    // in key Gb Major or Cb Major note B=Cb is called Cb
-    (key.i === 13 || key.i === 14) && note.n === notes[11]) {
+    // B=Cb is called Cb (and so crosses the nlm level) in keys Gb, Cb Major or Eb Minor, 
+    note.n === notes[11] && (key.i === 13 || key.i === 14 || key.i === 28 || key.i === 29)
+  ) {
     return nlm[note.n.slice(2,4) + (note.l+1)]; 
   } else if (
-    note.n === notes[2] || // D
-    note.n === notes[7] || // G
-    note.n === notes[9])   // A
-  {
-    return nlm[note.n + note.l]; 
-  } else if (
-    note.n === notes[0] || // C=B#
-    note.n === notes[4] || // E=Fb
-    note.n === notes[5] || // F=E#
-    note.n === notes[11])  // B=Cb
-  {
+    note.n === notes[11] || // B=Cb
+    note.n === notes[4]  || // E=Fb
+    note.n === notes[9]  || // A
+    note.n === notes[2]  || // D
+    note.n === notes[7]  || // G
+    note.n === notes[0]  || // C=B#
+    note.n === notes[5]     // F=E#
+  ) {
     return nlm[note.n.slice(0,1) + note.l]; 
   } else if (
-    note.n === notes[1] || // Db/C#
-    note.n === notes[3] || // Eb/D#
-    note.n === notes[6] || // Gb/F#
-    note.n === notes[8] || // Ab/G#
-    note.n === notes[10])  // Bb/A#
-  {
-    if (key.i < 8) {
+    note.n === notes[10] || // Bb/A#
+    note.n === notes[3]  || // Eb/D#
+    note.n === notes[8]  || // Ab/G#
+    note.n === notes[1]  || // Db/C#
+    note.n === notes[6]     // Gb/F#
+  ) {
+    if (key.i < 8 || key.i > 15 && key.i < 23) {
       // use sharp name
-      return nlm[note.n.slice(3,5) + note.l]; // this line works for all the sharp keys
+      return nlm[note.n.slice(3,5) + note.l];
     } else {
       // use flat name
       return nlm[note.n.slice(0,2) + note.l]; 
