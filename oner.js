@@ -135,6 +135,16 @@ function noteLabelForRange(str) {
   return str;
 }
 
+/*
+ looking high level at this function and getStaffLine(note)
+ it looks like they might/probably do the same thing.
+ This function uses the keys in the if statements (now 30 keys) and
+ getStaffLine uses the notes and keys in the if statements.
+ Since at first there were 12 notes and a few keys noteLabelForKey's way
+ made sense but now there are 30 keys and 12 notes so getStaffLine is probably
+ easier
+ maybe rewrite when done with other things
+*/
 function noteLabelForKey(str) {
   const ki = rcs.key;
   if (ki === 0 || // majors
