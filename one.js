@@ -60,6 +60,7 @@ let pitchElem, noteElem, numCorrect, detuneElem, detuneAmount, lastPlayed;
 let loopNote, loopsCtr, padTimerStart, padTimerStop, timeoutThird, timeoutFifth, timeoutSeventh;
 let padFreqs = {};
 let inited =  false; // inited doesn't have a UI setting so keeping out of rcs
+let startTimerOrPauseTimerIsRunning = false;
 
 // arrays of notes
 let notesActual=[], noteNamesInKey, notesMinimum=[];
@@ -264,7 +265,7 @@ function updatePitch() {
           if (heardCnt >= rcs.heardCntReq) {
             lastPlayed.innerHTML = 'Correctly played: ' + noteHeard.n +
               ' ' + firstUnplayedNote.l + '=' + noteHeard.l;
-            if (tone && loopsCtr === 0){
+            if (tone && loopsCtr < 1) {
               releaseNoteAtTarget();
             }
           }
@@ -388,6 +389,7 @@ function pad(freq) {
 function loopsStart(note) {
   loopNote = note;
   loopsCtr = rcs.loops;
+  forceReactUpdateTrick();
   loopPadStart();
 }
 function loopPadStart() {
@@ -400,6 +402,7 @@ function loopPadStart() {
   }
   const loopFreq = notesActual[loopNoteIndex].f;
   stopPad(loopFreq); // just in case it was running already
+  startTimerOrPauseTimerIsRunning = true;
   startPad(loopFreq);
   padTimerStart = setTimeout(() => {
     loopPadStop(loopFreq);
@@ -408,7 +411,9 @@ function loopPadStart() {
 function loopPadStop(loopFreq) {
   stopPad(loopFreq);
   loopsCtr--;
+  forceReactUpdateTrick();
   padTimerStop = setTimeout(() => {
+    startTimerOrPauseTimerIsRunning = false;
     if (loopsCtr > 0) {
       loopPadStart();
     } else if (rcs.listening === NONE) {

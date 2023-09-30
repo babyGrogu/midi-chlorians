@@ -413,10 +413,12 @@ function findFirstUnplayedKonvaNote() {
       }
     }
   }
+  return null;
 }
 
 function findFirstUnplayedNote() {
-  return findFirstUnplayedKonvaNote().getAttr(NOTE);
+  const kn = findFirstUnplayedKonvaNote();
+  return (kn) ? kn.getAttr(NOTE) : null;
 }
 
 function findLeftMostNoteToPlay() {
@@ -428,12 +430,15 @@ function findLeftMostNoteToPlay() {
 }
 
 function releaseNoteAtTarget() {
+  startTimerOrPauseTimerIsRunning = false;
   heardCnt = 0;
   const konvaNote = findFirstUnplayedKonvaNote();
-  stopPad(konvaNote.getAttr(NOTE).f);
-  konvaNote.setAttr(NOTE_PLAYED, true);
-  // always make note visible in case user toggles 'hide' back and forth
-  konvaNote.setAttr('visible', true);
+  if (konvaNote) {
+    stopPad(konvaNote.getAttr(NOTE).f);
+    konvaNote.setAttr(NOTE_PLAYED, true);
+    // always make note visible in case user toggles 'hide' back and forth
+    konvaNote.setAttr('visible', true);
+  }
   if (! animateRoll.isRunning()) {
     animateRoll.start();
   }
@@ -445,7 +450,9 @@ function releaseNoteAtTarget() {
 
 function showNoteAtTarget() {
   const konvaNote = findFirstUnplayedKonvaNote();
-  konvaNote.setAttr('visible', true);
+  if (konvaNote) {
+    konvaNote.setAttr('visible', true);
+  }
 }
 
 function destroyAllNotes() {
@@ -548,6 +555,18 @@ function setNoteFunction(state) {
   }
   if (state.func === FUNC_DESC) {
     animateNoteFunction = generateDescendingKeyNote;
+  }
+}
+
+function clearNotes() {
+  const c = roll.getChildren();
+  if (c && c.length) {
+    let restart = animateRoll.isRunning() || startTimerOrPauseTimerIsRunning;
+    stopIt();
+    for (let i=c.length-1; i>-1; i--) {
+      c[i].destroy();
+    }
+    if (restart) startIt();
   }
 }
 

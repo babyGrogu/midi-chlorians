@@ -1,6 +1,6 @@
 'use strict';
 
-const { useReducer, createElement, useEffect } = React
+const { useReducer, createElement, useEffect, useCallback } = React
 const { createRoot } = ReactDOM;
 
 const CMD_SET_INITED = 'INITED';
@@ -311,8 +311,15 @@ function controlsReducer(state, action) {
 }
 
 
+let forceReactUpdateTrick = null;
 const Controls = (props) => {
   const [reducerControlledState, dispatch] = useReducer(controlsReducer, initialState);
+  const [, updateReactTrick] = React.useState();
+  // use this trick to update react each when loopsCtr changes
+  // if we get lots of variables that change like this and need updates maybe
+  // try using React.useSyncExternalStore that stores all the variables that
+  // react needs to be updated for
+  forceReactUpdateTrick = React.useCallback(() => updateReactTrick({}), []);
   
   rcs = reducerControlledState;
 
@@ -546,7 +553,7 @@ const Controls = (props) => {
             loops: parseInt(e.currentTarget.value,10),
           })
         }/>
-        <label htmlFor="loops">{rcs.loops} loops</label>
+        <label htmlFor="loops"> {rcs.loops > 1 && loopsCtr > 0 ? loopsCtr + '/' : ''}{rcs.loops} loops </label>
 
         <span className="horizSpacer"></span>
 
@@ -605,6 +612,11 @@ const Controls = (props) => {
           command: CMD_RESET,
           target: e.currentTarget
         })}>Reset</button>
+        <span className="horizSpacer"></span>
+        <button onClick={e => {
+          e.currentTarget.blur();
+          clearNotes();
+        }}>Clear notes</button>
       </div>
     </div>
   );
