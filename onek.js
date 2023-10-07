@@ -36,11 +36,10 @@ const NOTE = 'NOTE';
 const NOTE_PLAYED = 'NOTE_PLAYED';
 const TYPE = 'TYPE';
 const TYPE_NOTE = 'TYPE_NOTE';
-let roll, measure, hiddenTic, beatCtr = 0;
+
 
 let quarterNote, quarterNoteFlipped, quarterNoteFlippedG, quarterNoteFlippedF,quarterNoteFlippedE, quarterNoteFlippedD, quarterNoteFlippedC, quarterNoteE, quarterNoteD, quarterNoteC, quarterNoteB, tooltip, animateNoteFunction;
-let targetX, targetZoneWidth;
-let lastNoteGenerated = {n:-1}; 
+let roll, measure, hiddenTic, sharp, flat, natural, beatCtr = 0, targetX, targetZoneWidth, lastNoteGenerated = {n:-1}; 
 
 // create staff
 function initKonva() {
@@ -97,10 +96,12 @@ function initKonva() {
   });
   layer.add(roll);
 
-  drawBassClef();
+  createAndCacheElements();
 
-  // add the layer to the stage
-  stage.add(layer);
+  drawBassClef();
+  layer.add(sharp.clone({x:0,y:4}));
+  layer.add(flat.clone({x:23,y:4}));
+  layer.add(natural.clone({x:23,y:4}));
 
   tooltip = new Konva.Text({
         text: '',
@@ -116,11 +117,11 @@ function initKonva() {
   tooltipLayer.add(tooltip);
   stage.add(tooltipLayer);
 
+  // add the layer to the stage
+  stage.add(layer);
 
   // draw the image
   layer.draw();
-
-  createAndCacheElements();
 }
 
 function createAndCacheElements() {
@@ -313,6 +314,25 @@ function createAndCacheElements() {
   });
   hiddenTic.add(hiddenTicLine);
   hiddenTic.cache();
+
+  
+  sharp = new Konva.Path({
+    fill: 'black',
+    data: 'm 79.903152,145.91202 0,-17.00357 7.046381,-1.99531 0,16.91681 -7.046381,2.08207 z m 13.874322,-4.11353 -4.844386,1.42418 0,-16.91681 4.844386,-1.38804 0,-7.02698 -4.844386,1.38804 0,-17.28468 -1.983555,0 0,17.80881 -7.046381,2.07845 0,-16.80753 -1.870814,0 0,17.44734 -4.844386,1.39166 0,7.04144 4.844386,-1.38805 0,16.88428 -4.844386,1.38444 0,7.01252 4.844386,-1.38804 0,17.18708 1.870814,0 0,-17.80159 7.046381,-1.98808 0,16.72079 1.983555,0 0,-17.34975 4.844386,-1.39166 0,-7.03782 z',
+  });
+
+  sharp.cache();
+  flat = new Konva.Path({
+    fill: 'black',
+    data: 'm 76.082718,89.459865 0,30.818095 c -2e-6,1e-5 -2e-6,2.07737 0,6.23206 2.760333,-2.6616 5.858041,-4.02486 9.293135,-4.0898 2.146916,3e-5 3.987139,0.94133 5.520675,2.8239 1.349483,1.75278 2.054897,3.7003 2.116256,5.84256 0.0613,1.68785 -0.337388,3.63536 -1.196145,5.84255 -0.306719,0.90884 -0.981468,1.8826 -2.024245,2.92127 -0.797446,0.77901 -1.625547,1.59047 -2.484304,2.4344 -4.539231,3.50552 -9.078447,7.0435 -13.617664,10.61396 l 0,-63.438995 2.392292,0 m 7.452911,39.192415 c -0.736099,-0.90883 -1.686881,-1.36325 -2.852349,-1.36325 -1.472185,0 -2.66833,0.87638 -3.588438,2.62914 -0.674752,1.36326 -1.012126,4.57666 -1.012124,9.64021 l 0,8.37432 c 0.06134,0.25965 1.77888,-1.33081 5.152629,-4.77142 1.840216,-1.81768 3.036361,-3.95996 3.588439,-6.4268 0.245352,-0.97377 0.368034,-1.94751 0.368045,-2.92128 -1.1e-5,-2.14227 -0.552078,-3.86257 -1.656202,-5.16092',
+  });
+  flat.cache();
+
+  natural = new Konva.Path({
+    fill: 'black',
+    data: 'M 0,8.880 V 36.288 h -1.248 V 26.016 l -6.672,1.728 V 0 h 1.2 v 10.704 l 6.72,-1.824 z m -6.72,6.432 v 7.536 l 5.472,-1.44 v -7.536 l -5.472,1.44 z',
+  });
+  natural.cache();
 }
 
 // note relates to values in noteMapActuals
@@ -583,6 +603,10 @@ function testRenderLowestKeyNotes() {
   testNotes.forEach(n => {
     renderNote(n);
   });
+}
+
+function renderKeySignature() {
+  const noteName = noteNamesInKey[6];
 }
 
 const nlm = {}; // noteLineMap for bass clef

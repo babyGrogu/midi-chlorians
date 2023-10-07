@@ -72,7 +72,8 @@ let rafID = null;
 let buf = new Float32Array( 2048 );
 
 
-createsNotesArrays();
+createNotesArrays();
+createBassClefKeySignatures();
 
 // onload handler has to be at top
 window.onload = function () {
@@ -297,7 +298,7 @@ function updatePitch() {
 
 //--------------------------------------------------------------
 
-function createsNotesArrays() {
+function createNotesArrays() {
   // todo: add text field for a4 frequencies
   //const a4Freq = document.getElementById('frequency').value;
   const a4Freq = 440;
@@ -333,6 +334,29 @@ function createsNotesArrays() {
       i,
     });
   }
+}
+
+function createBassClefKeySignatures() {
+  // low  B line on bass clef has Bb/A# as its lowest  possible note; 13 
+  // high A line on bass clef has Bb/A# as its highest possible note; 25
+  const notesInStaff = notesActual.slice(9, 26);
+
+  function makeOrder(startKey, endKey, accidentalPosition) {
+    const order = []; // order of accidentals
+    for (let i=startKey; i<endKey; i++) { // sharps
+      const noteNamesInKey = calculateNoteNamesInKey(i);
+      const accidentalName = noteNamesInKey[accidentalPosition];
+      const accNote = notesInStaff.find(n => n.n === accidentalName);
+      order.push(accNote);
+      const newOrder = [...order];
+      keys[i].acc = newOrder;
+      keys[i+15].acc = newOrder;  // relative minor key has same accidentals
+    }
+  }
+  keys[0].acc = [];
+  keys[15].acc = [];
+  makeOrder(1,8,6); // major sharps
+  makeOrder(8,15,3); // major flats
 }
 
 function pad(freq) {

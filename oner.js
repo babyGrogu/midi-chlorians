@@ -95,21 +95,22 @@ function findChangesFromDefault(obj) {
   return c;
 }
 
-function calculateNotesForKey(state) {
-  if (state.key < 15) {
-    keySteps = KEY_MAJOR_HALF_STEPS;
-  } else {
-    keySteps = KEY_MINOR_HALF_STEPS;
-  }
-  // figure out what notes names are in the user specifed key
-  noteNamesInKey = [];
-  for (let i = notes.indexOf(keys[state.key].root), j = 0;
-       j < keySteps.length;
-       i = (i + keySteps[j]) % notes.length, j++) {
+function calculateNoteNamesInKey(keyNum) {
+  const noteNamesInKey = [];
+  const steps = keyNum < 15 ? KEY_MAJOR_HALF_STEPS: KEY_MINOR_HALF_STEPS;
+
+  // figure out what notes names are in the key
+  for (let i = notes.indexOf(keys[keyNum].root), j = 0;
+       j < steps.length;
+       i = (i + steps[j]) % notes.length, j++) {
     const noteInKey = notes[i];
     noteNamesInKey.push(noteInKey);
   }
+  return noteNamesInKey;
+}
 
+function calculateNotesForKey(state) {
+  noteNamesInKey = calculateNoteNamesInKey(state.key);
   // for the key note names, find the notes in range
   notesActualInKeyForRange.length = 0;
 
@@ -119,6 +120,8 @@ function calculateNotesForKey(state) {
       notesActualInKeyForRange.push(n);
     }
   });
+
+  renderKeySignature();
 }
 
 function sp(s, ss, i) {
