@@ -28,45 +28,7 @@ const CMD_SET_BEEP = 'BEEP';
 const CMD_SET_FUNC = 'FUNC';
 const CMD_SET_SKIP = 'SKIP';
 
-const FUNC_RANDO = 'RANDO';
-const FUNC_ASC = 'ASC';
-const FUNC_DESC = 'DESC';
-
-// keep defaultState to one level of nested objects so the localStorage of ui settings will work
-const defaultState = {
-  listening: NONE,
-  octEq: false,
-  octHigher: false,
-  amp: false,
-  hide: false,
-  key: 0, // 0 = C major
-  rangeLow: 2,
-  rangeHigh: 34,
-  animationVelocity: 420,
-  tone: true, // play tone when stopped at target
-  tone3: false, // play the third
-  tone5: false, // play the fifth
-  tone7: false, // play the seventh
-  chordOrArpg: 'chord', // the selected tones 3,5,7 as a chord or as an arpegio
-  loops: 1,
-  loopPlayTime: 800,
-  loopPauseTime: 0,
-  heardCntReq: 23,
-  beep: false,
-  func: FUNC_RANDO,
-  skip: {},
-};
-const LOCAL_STORAGE_KEY = 'babyGrogu';
-const localStoreData = JSON.parse(window.localStorage.getItem(LOCAL_STORAGE_KEY));
-const initialState = {...defaultState, ...localStoreData};
-
 let rcs = {}; // reducer controlled state
-let notesActualInKeyForRange = [];
-
-calculateNotesForKey(initialState);
-setNoteFunction(initialState);
-
-
 
 
 // following works for objects now, not yet for arrays
@@ -93,35 +55,6 @@ function findChangesFromDefault(obj) {
     }
   }
   return c;
-}
-
-function calculateNoteNamesInKey(keyNum) {
-  const noteNamesInKey = [];
-  const steps = keyNum < 15 ? KEY_MAJOR_HALF_STEPS: KEY_MINOR_HALF_STEPS;
-
-  // figure out what notes names are in the key
-  for (let i = notes.indexOf(keys[keyNum].root), j = 0;
-       j < steps.length;
-       i = (i + steps[j]) % notes.length, j++) {
-    const noteInKey = notes[i];
-    noteNamesInKey.push(noteInKey);
-  }
-  return noteNamesInKey;
-}
-
-function calculateNotesForKey(state) {
-  noteNamesInKey = calculateNoteNamesInKey(state.key);
-  // for the key note names, find the notes in range
-  notesActualInKeyForRange.length = 0;
-
-  const notesActualLowHighRange = notesActual.slice(state.rangeLow, state.rangeHigh+1); 
-  notesActualLowHighRange.forEach(n => {
-    if (noteNamesInKey.indexOf(n.n) > -1) {
-      notesActualInKeyForRange.push(n);
-    }
-  });
-
-  renderKeySignature();
 }
 
 function sp(s, ss, i) {
@@ -231,23 +164,25 @@ function controlsReducer(state, action) {
       return state;
     case (CMD_RESET):
       newState = {...defaultState};
-      calculateNotesForKey(newState);
+      setUpKey(newState);
+      renderKeySignature(initialState.key)
       setNoteFunction(newState);
       action.target.blur();
       return newState;
     case (CMD_SET_KEY):
       newState = {...state, key: action.key, skip: {}};
-      calculateNotesForKey(newState);
+      setUpKey(newState);
+      renderKeySignature(newState.key)
       action.target.blur(); // remove focus from widget so typing does not change selection
       return newState;
     case (CMD_SET_RANGE_LOW):
       newState = {...state, rangeLow: action.low };
-      calculateNotesForKey(newState);
+      setUpKey(newState);
       action.target.blur();
       return newState;
     case (CMD_SET_RANGE_HIGH):
       newState = {...state, rangeHigh: action.high };
-      calculateNotesForKey(newState);
+      setUpKey(newState);
       action.target.blur();
       return newState;
     case (CMD_SET_FUNC):
@@ -628,4 +563,3 @@ const Controls = (props) => {
 const domContainer = document.querySelector('#reactRoot');
 const reactRoot = createRoot(domContainer);
 reactRoot.render(<Controls />);
-

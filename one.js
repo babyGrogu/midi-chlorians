@@ -52,6 +52,39 @@ const KEY_MAJOR_HALF_STEPS = [2,2,1,2,2,2,1];
 const KEY_MINOR_HALF_STEPS = [2,1,2,2,1,2,2]
 const NONE = 'none';
 
+const LOCAL_STORAGE_KEY = 'babyGrogu';
+const FUNC_RANDO = 'RANDO';
+const FUNC_ASC = 'ASC';
+const FUNC_DESC = 'DESC';
+
+// keep defaultState to one level of nested objects so the localStorage of ui settings will work
+const defaultState = {
+  listening: NONE,
+  octEq: false,
+  octHigher: false,
+  amp: false,
+  hide: false,
+  key: 0, // 0 = C major
+  rangeLow: 2,
+  rangeHigh: 34,
+  animationVelocity: 420,
+  tone: true, // play tone when stopped at target
+  tone3: false, // play the third
+  tone5: false, // play the fifth
+  tone7: false, // play the seventh
+  chordOrArpg: 'chord', // the selected tones 3,5,7 as a chord or as an arpegio
+  loops: 1,
+  loopPlayTime: 800,
+  loopPauseTime: 0,
+  heardCntReq: 23,
+  beep: false,
+  func: FUNC_RANDO,
+  skip: {},
+};
+let initialState;
+let notesActualInKeyForRange = [];
+
+
 let keySteps = KEY_MAJOR_HALF_STEPS;
 let chooseNoteTimer = -1;
 let animationFramesCtr = 0;
@@ -63,7 +96,7 @@ let inited =  false; // inited doesn't have a UI setting so keeping out of rcs
 let startTimerOrPauseTimerIsRunning = false;
 
 // arrays of notes
-let notesActual=[], noteNamesInKey, notesMinimum=[];
+let notesActual=[], noteNamesInKey = [], notesMinimum=[];
 
 // webaudio variables
 let analyser = null;
@@ -72,21 +105,29 @@ let rafID = null;
 let buf = new Float32Array( 2048 );
 
 
-createNotesArrays();
-createBassClefKeySignatures();
-
 // onload handler has to be at top
 window.onload = function () {
-	pitchElem = document.getElementById("pitch");
-	noteElem = document.getElementById("note");
-	numCorrect = document.getElementById("numCorrect");
-	detuneElem = document.getElementById("detune");
-	detuneAmount = document.getElementById("detune_amt");
-	lastPlayed = document.getElementById("lastPlayed");
+  pitchElem = document.getElementById("pitch");
+  noteElem = document.getElementById("note");
+  numCorrect = document.getElementById("numCorrect");
+  detuneElem = document.getElementById("detune");
+  detuneAmount = document.getElementById("detune_amt");
+  lastPlayed = document.getElementById("lastPlayed");
+
+  createNotesArrays();
+  createBassClefKeySignatures();
+
+  const localStoreData = JSON.parse(window.localStorage.getItem(LOCAL_STORAGE_KEY));
+  initialState = {...defaultState, ...localStoreData};
+  setUpKey(initialState);
+  setNoteFunction(initialState);
 
   // is this the best place to start all this?
   initKonva();
+  renderKeySignature(initialState.key)
+
 }
+
 
 function startAudioProcessing() {
   // no listening mode
@@ -120,7 +161,7 @@ function startAudioProcessing() {
   // would this make it faster?
   //audioContext = new AudioContext({sampleRate:8*1024});
 
-  // new version of getUserMedia from 
+  // new version of getUserMedia from
   // https://github.com/cwilso/PitchDetect/commit/dcae53dc491e42806870abf5588f6f46df56a9a5
   if (rcs.listening === 'mic') {
     // Attempt to get audio input
@@ -249,14 +290,6 @@ function updatePitch() {
 
     if (notesMinimum[0].f <= noteFreq && noteFreq < notesActual[notesActual.length-1].f) {
       const noteHeard = binarySearch(noteFreq);
-      /*
-      console.log(
-        (noteHeard) ?
-          noteHeard.n + noteHeard.l + ' ' + noteHeard.f + ' ' + noteFreq
-          :
-          'oops ' + noteFreq
-      );
-      */
       if (noteHeard) {
         noteElem.innerHTML = noteHeard.n + ' ' + noteHeard.l + ' ' + noteHeard.f;
 
@@ -278,22 +311,22 @@ function updatePitch() {
       }
     }
 
-		var detune = centsOffFromPitch( noteFreq, note );
-		if (detune == 0 ) {
-			detuneElem.className = "";
-			detuneAmount.innerHTML = "--";
-		} else {
-			if (detune < 0)
-				detuneElem.className = "flat";
-			else
-				detuneElem.className = "sharp";
-			detuneAmount.innerHTML = Math.abs( detune );
-		}
-	}
+  const detune = centsOffFromPitch( noteFreq, note );
+  if (detune == 0) {
+    detuneElem.className = "";
+    detuneAmount.innerHTML = "--";
+  } else {
+    if (detune < 0)
+      detuneElem.className = "flat";
+    else
+      detuneElem.className = "sharp";
+      detuneAmount.innerHTML = Math.abs( detune );
+  }
+}
 
-	if (!window.requestAnimationFrame)
-		window.requestAnimationFrame = window.webkitRequestAnimationFrame;
-	rafID = window.requestAnimationFrame( updatePitch );
+  if (!window.requestAnimationFrame)
+    window.requestAnimationFrame = window.webkitRequestAnimationFrame;
+  rafID = window.requestAnimationFrame( updatePitch );
 }
 
 //--------------------------------------------------------------
@@ -336,27 +369,44 @@ function createNotesArrays() {
   }
 }
 
-function createBassClefKeySignatures() {
-  // low  B line on bass clef has Bb/A# as its lowest  possible note; 13 
-  // high A line on bass clef has Bb/A# as its highest possible note; 25
-  const notesInStaff = notesActual.slice(9, 26);
+function calculateNoteNamesInKey(keyNum) {
+  const noteNamesInKeyLocal = [];
+  const steps = keyNum < 15 ? KEY_MAJOR_HALF_STEPS: KEY_MINOR_HALF_STEPS;
 
-  function makeOrder(startKey, endKey, accidentalPosition) {
+  // figure out what notes names are in the key
+  for (let i = notes.indexOf(keys[keyNum].root), j = 0;
+       j < steps.length;
+       i = (i + steps[j]) % notes.length, j++) {
+    const noteInKey = notes[i];
+    noteNamesInKeyLocal.push(noteInKey);
+  }
+  return noteNamesInKeyLocal;
+}
+
+function createBassClefKeySignatures() {
+
+  function makeOrder(startKey, endKey, accidentalPosition, accRange) {
     const order = []; // order of accidentals
     for (let i=startKey; i<endKey; i++) { // sharps
-      const noteNamesInKey = calculateNoteNamesInKey(i);
-      const accidentalName = noteNamesInKey[accidentalPosition];
-      const accNote = notesInStaff.find(n => n.n === accidentalName);
+      const noteNamesInKeyLocal = calculateNoteNamesInKey(i);
+      const accidentalName = noteNamesInKeyLocal[accidentalPosition];
+      const accNote = accRange.find(n => n.n === accidentalName);
       order.push(accNote);
       const newOrder = [...order];
       keys[i].acc = newOrder;
       keys[i+15].acc = newOrder;  // relative minor key has same accidentals
     }
   }
+
+  // sharp signatures range on staff line from A1 to G2
+  let accidentalSigRange = notesActual.slice(12, 24);
   keys[0].acc = [];
+  makeOrder(1,  8, 6, accidentalSigRange);
+
+  // flat signatures range on staff line from F1 to E2
+  accidentalSigRange = notesActual.slice(7, 20);
   keys[15].acc = [];
-  makeOrder(1,8,6); // major sharps
-  makeOrder(8,15,3); // major flats
+  makeOrder(8, 15, 3, accidentalSigRange);
 }
 
 function pad(freq) {
@@ -564,6 +614,31 @@ function startIt() {
 function stopIt() {
   animateRoll.stop();
   stopPadAll();
+}
+
+function setUpKey(state) {
+  noteNamesInKey = calculateNoteNamesInKey(state.key);
+  // for the key note names, find the notes in range
+  notesActualInKeyForRange.length = 0;
+
+  const notesActualLowHighRange = notesActual.slice(state.rangeLow, state.rangeHigh+1); 
+  notesActualLowHighRange.forEach(n => {
+    if (noteNamesInKey.indexOf(n.n) > -1) {
+      notesActualInKeyForRange.push(n);
+    }
+  });
+}
+
+function setNoteFunction(state) {
+  if (state.func === FUNC_RANDO) {
+    animateNoteFunction = generateRandomNote;
+  }
+  if (state.func === FUNC_ASC) {
+    animateNoteFunction = generateAscendingKeyNote;
+  }
+  if (state.func === FUNC_DESC) {
+    animateNoteFunction = generateDescendingKeyNote;
+  }
 }
 
 function startKeyBoardListening() {
