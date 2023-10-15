@@ -50,6 +50,7 @@ const keys = [
 //const CLEF_TREBLE = 'treble';
 const KEY_MAJOR_HALF_STEPS = [2,2,1,2,2,2,1];
 const KEY_MINOR_HALF_STEPS = [2,1,2,2,1,2,2]
+const KEY_CHROMATIC_HALF_STEPS = [1,1,1,1,1,1,1,1,1,1,1,1]
 const NONE = 'none';
 
 const LOCAL_STORAGE_KEY = 'babyGrogu';
@@ -64,6 +65,7 @@ const defaultState = {
   octHigher: false,
   amp: false,
   hide: false,
+  chork: 0, // chromatic or key value
   key: 0, // 0 = C major
   rangeLow: 2,
   rangeHigh: 34,
@@ -369,9 +371,11 @@ function createNotesArrays() {
   }
 }
 
-function calculateNoteNamesInKey(keyNum) {
+function calculateNoteNamesInKey(keyNum, chork) {
   const noteNamesInKeyLocal = [];
-  const steps = keyNum < 15 ? KEY_MAJOR_HALF_STEPS: KEY_MINOR_HALF_STEPS;
+  let steps;
+  if (chork) steps = KEY_CHROMATIC_HALF_STEPS
+  else steps = keyNum < 15 ? KEY_MAJOR_HALF_STEPS: KEY_MINOR_HALF_STEPS;
 
   // figure out what notes names are in the key
   for (let i = notes.indexOf(keys[keyNum].root), j = 0;
@@ -388,7 +392,7 @@ function createBassClefKeySignatures() {
   function makeOrder(startKey, endKey, accidentalPosition, accRange) {
     const order = []; // order of accidentals
     for (let i=startKey; i<endKey; i++) { // sharps
-      const noteNamesInKeyLocal = calculateNoteNamesInKey(i);
+      const noteNamesInKeyLocal = calculateNoteNamesInKey(i, false);
       const accidentalName = noteNamesInKeyLocal[accidentalPosition];
       const accNote = accRange.find(n => n.n === accidentalName);
       order.push(accNote);
@@ -617,7 +621,7 @@ function stopIt() {
 }
 
 function setUpKey(state) {
-  noteNamesInKey = calculateNoteNamesInKey(state.key);
+  noteNamesInKey = calculateNoteNamesInKey(state.key, state.chork);
   // for the key note names, find the notes in range
   notesActualInKeyForRange.length = 0;
 

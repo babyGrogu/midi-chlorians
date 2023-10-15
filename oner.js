@@ -1,6 +1,6 @@
 'use strict';
 
-const { useReducer, createElement, useEffect, useCallback } = React
+const { useReducer, createElement, useEffect, useCallback, StrictMode } = React
 const { createRoot } = ReactDOM;
 
 const CMD_SET_INITED = 'INITED';
@@ -11,6 +11,7 @@ const CMD_SET_OCT_HIGHER = 'OCT_HIGHER';
 const CMD_SET_AMP = 'AMP';
 const CMD_SET_HIDE = 'HIDE';
 const CMD_SET_KEY = 'KEY';
+const CMD_SET_CHORK = 'CHORK';
 const CMD_SET_VELOCITY = 'VELOCITY';
 const CMD_SET_TONE = 'TONE';
 const CMD_SET_RELEASE_WHEN_HEARD = 'RELEASE';
@@ -169,6 +170,12 @@ function controlsReducer(state, action) {
       setNoteFunction(newState);
       action.target.blur();
       return newState;
+    case (CMD_SET_CHORK):
+      newState = {...state,  chork: action.chork, skip: {}};
+      setUpKey(newState);
+      renderKeySignature(newState.key)
+      action.target.blur();
+      return newState;
     case (CMD_SET_KEY):
       newState = {...state, key: action.key, skip: {}};
       setUpKey(newState);
@@ -233,6 +240,7 @@ function controlsReducer(state, action) {
     case (CMD_SET_PLAY_CNT_REQ):
       return {...state, heardCntReq: action.heardCntReq };
     case (CMD_SET_BEEP):
+      action.target.blur();
       return {...state, beep: action.beep };
     case (CMD_SET_SKIP):
       const {skipNote:skn, skipChecked:skc} = action;
@@ -275,7 +283,20 @@ const Controls = (props) => {
     <div>
 
       <div>
-        <select id="selectRoot"
+        <select id="selectChOrKey"
+          value={rcs.chork}
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_CHORK,
+              chork: parseInt(e.currentTarget.value, 10),
+              target: e.currentTarget
+            })
+          }
+          >
+          <option value={1}>All{/* chromatic */} notes</option>
+          <option value={0}>Key notes</option>
+        </select>
+        <select id="selectKey"
           value={keys.findIndex(k => k.label === keys[rcs.key].label)}
           onChange={e =>
             dispatch({
@@ -562,4 +583,4 @@ const Controls = (props) => {
 
 const domContainer = document.querySelector('#reactRoot');
 const reactRoot = createRoot(domContainer);
-reactRoot.render(<Controls />);
+reactRoot.render(<StrictMode><Controls /></StrictMode>);
