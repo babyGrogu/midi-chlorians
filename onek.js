@@ -13,9 +13,9 @@ const lineSpacing = 16;
 const linesInStaff = 5;
 const topLine = 20;
 
-const noteWidth = 48;
-const noteSpacing = 32;
-const noteTotalWidth = noteSpacing + noteWidth;
+//const noteWidth = 48;
+//const noteSpacing = 32;
+const noteTotalWidth = 80; //noteSpacing + noteWidth;
 const noteRadiusX = 6;
 const noteRadiusY = 8;
 const noteStrokeWidth = 3;
@@ -42,7 +42,7 @@ let quarterNote, quarterNoteFlipped, quarterNoteFlippedG, quarterNoteFlippedF,qu
 let roll, measure, hiddenTic, sharp, flat, natural, keySig = [], beatCtr = 0, targetX, targetZoneWidth, lastNoteGenerated = {n:-1}; 
 
 // create staff
-function initKonva() {
+function initKonva(initialStateKey) {
   stage = new Konva.Stage({
     container: 'konvaRoot',  // html <div> id
     width,
@@ -120,6 +120,8 @@ function initKonva() {
 
   // draw the image
   layer.draw();
+
+  renderKeySignature(initialStateKey)
 }
 
 function createAndCacheElements() {
@@ -394,6 +396,21 @@ function renderNote(note) {
       x: noteInsertionPoint,
     });
     roll.add(h);
+  }
+
+  // create sharp/flat/natural here at noteInsertionPoint minus a bit
+  // NOTE: test with HIDE functionality
+  // NOTE: have to handle rendering the 'natural' symbol
+  //        for when in key G the regular F note is to be denoted
+
+  // if outside the key AND sharp or flat
+  let idx = noteNamesInKey.findIndex(n => n === note.n);
+  if (idx === -1) {
+    const sh = sharp.clone({
+      x: noteInsertionPoint - 60,
+      y: lineSpacing * staffLine/2 - 68
+    });
+    roll.add(sh);
   }
 
   const newNoteK = noteK.clone({

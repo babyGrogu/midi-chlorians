@@ -65,7 +65,7 @@ const defaultState = {
   octHigher: false,
   amp: false,
   hide: false,
-  chork: 0, // chromatic or key value
+  chromatic: 0, // 1 means show all notes
   key: 0, // 0 = C major
   rangeLow: 2,
   rangeHigh: 34,
@@ -98,7 +98,7 @@ let inited =  false; // inited doesn't have a UI setting so keeping out of rcs
 let startTimerOrPauseTimerIsRunning = false;
 
 // arrays of notes
-let notesActual=[], noteNamesInKey = [], notesMinimum=[];
+let notesActual = [], notesMinimum = [], noteNamesInKey = [], noteNamesChromaticForKey = [];
 
 // webaudio variables
 let analyser = null;
@@ -125,9 +125,7 @@ window.onload = function () {
   setNoteFunction(initialState);
 
   // is this the best place to start all this?
-  initKonva();
-  renderKeySignature(initialState.key)
-
+  initKonva(initialState.key);
 }
 
 
@@ -352,7 +350,7 @@ function createNotesArrays() {
 
   // 89 go one note higher so array has the MINIMUM above the last 88th piano note
   for (let i=0; i<89; i++) {
-    note = notes[(9 + i + 12) % 12];
+    note = notes[(9 + i + 12) % 12]; // TODO: why did id put that '+ 12' there?
     level = Math.floor((9 + i)/12);
     freq = a0*Math.pow(TWELFTH_ROOT_OF_TWO, i);
 
@@ -371,10 +369,10 @@ function createNotesArrays() {
   }
 }
 
-function calculateNoteNamesInKey(keyNum, chork) {
+function calculateNoteNamesInKey(keyNum, chromatic) {
   const noteNamesInKeyLocal = [];
   let steps;
-  if (chork) steps = KEY_CHROMATIC_HALF_STEPS
+  if (chromatic) steps = KEY_CHROMATIC_HALF_STEPS
   else steps = keyNum < 15 ? KEY_MAJOR_HALF_STEPS: KEY_MINOR_HALF_STEPS;
 
   // figure out what notes names are in the key
@@ -391,7 +389,7 @@ function createBassClefKeySignatures() {
 
   function makeOrder(startKey, endKey, accidentalPosition, accRange) {
     const order = []; // order of accidentals
-    for (let i=startKey; i<endKey; i++) { // sharps
+    for (let i=startKey; i<endKey; i++) {
       const noteNamesInKeyLocal = calculateNoteNamesInKey(i, false);
       const accidentalName = noteNamesInKeyLocal[accidentalPosition];
       const accNote = accRange.find(n => n.n === accidentalName);
@@ -405,7 +403,7 @@ function createBassClefKeySignatures() {
   // sharp signatures range on staff line from A1 to G2
   let accidentalSigRange = notesActual.slice(12, 24);
   keys[0].acc = [];
-  makeOrder(1,  8, 6, accidentalSigRange);
+  makeOrder(1, 8, 6, accidentalSigRange);
 
   // flat signatures range on staff line from F1 to E2
   accidentalSigRange = notesActual.slice(7, 20);
@@ -583,7 +581,7 @@ function beep() {
   beep.stop(now + 0.204);
 }
 
-// among noteNamesInKey
+// among noteNamesInKey not for all chromatic notes
 function calcIntervalFreq(freq, distanceOfNotesInKey) {
     // get index of note for freq and get note
     const indexOfRoot = notesActual.findIndex(n => n.f === freq);
@@ -621,13 +619,16 @@ function stopIt() {
 }
 
 function setUpKey(state) {
-  noteNamesInKey = calculateNoteNamesInKey(state.key, state.chork);
+  noteNamesInKey = calculateNoteNamesInKey(state.key, false);
+  noteNamesChromaticForKey = (state.chromatic) ? calculateNoteNamesInKey(state.key, true) : [];
+  const notesSelected = (state.chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
+
   // for the key note names, find the notes in range
   notesActualInKeyForRange.length = 0;
 
   const notesActualLowHighRange = notesActual.slice(state.rangeLow, state.rangeHigh+1); 
   notesActualLowHighRange.forEach(n => {
-    if (noteNamesInKey.indexOf(n.n) > -1) {
+    if (notesSelected.indexOf(n.n) > -1) {
       notesActualInKeyForRange.push(n);
     }
   });

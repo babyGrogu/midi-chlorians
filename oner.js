@@ -1,6 +1,6 @@
 'use strict';
 
-const { useReducer, createElement, useEffect, useCallback, StrictMode } = React
+const { useReducer, useEffect, useCallback, StrictMode } = React
 const { createRoot } = ReactDOM;
 
 const CMD_SET_INITED = 'INITED';
@@ -99,14 +99,26 @@ function noteLabelForKey(str) {
   ) {
     str = sp(str, '=', 0);
     str = sp(str, '/', 1);
-  } else if ( // handle enharmonic special cases
+  }
+  else if ( // handle first 2 enharmonic special cases
       ki === 6 ||    //F#
+      ki === 21      //D#
+    )
+  {
+    if (str === notes[0] || str === notes[4] ||  str === notes[11]) {
+      str = sp(str, '=', 0); // in key F# note 'C=B#' is C, 'B=Cb' is B and 'E=Fb' is E
+    } else {
+      str = sp(str, '=', 1); // otherwise use the sharps
+    }
+    str = sp(str, '/', 1);
+  }
+  else if ( // handle second 2 enharmonic special cases
       ki === 7 ||    //C#
-      ki === 21 ||   //D#
       ki === 22      //A#
-    ) {
-    if (str === notes[11]) {
-      str = sp(str, '=', 0); // in key F# note B=C# is called B
+    )
+  {
+    if (str === notes[4] ||  str === notes[11]) {
+      str = sp(str, '=', 0); // in key F# note 'B=Cb' is B and 'E=Fb' is E
     } else {
       str = sp(str, '=', 1); // otherwise use the sharps
     }
@@ -139,6 +151,12 @@ function noteLabelForKey(str) {
     }
     str = sp(str, '/', 0);
   }
+
+  // ♮ 9838 NATURAL SIGN
+  // ♭ 9837 FLAT SIGN
+  // ♯ 9839 SHARP SIGN
+  str = str.replace(/#/,String.fromCharCode(9839));
+  str = str.replace(/b/,String.fromCharCode(9837));
   return str;
 }
 
@@ -164,6 +182,10 @@ function controlsReducer(state, action) {
       action.target.blur();
       return state;
     case (CMD_RESET):
+    //TODO:
+    // - save old key value
+    // - set key to C Major and clear key signature
+    // do the reverse when unsetting
       newState = {...defaultState};
       setUpKey(newState);
       renderKeySignature(initialState.key)
@@ -171,7 +193,7 @@ function controlsReducer(state, action) {
       action.target.blur();
       return newState;
     case (CMD_SET_CHORK):
-      newState = {...state,  chork: action.chork, skip: {}};
+      newState = {...state,  chromatic: action.chromatic, skip: {}};
       setUpKey(newState);
       renderKeySignature(newState.key)
       action.target.blur();
@@ -244,9 +266,8 @@ function controlsReducer(state, action) {
       return {...state, beep: action.beep };
     case (CMD_SET_SKIP):
       const {skipNote:skn, skipChecked:skc} = action;
-      if (state.skip[skn] !== undefined && state.skip[skn] === true && skc === false) {
+      if (skc === false) {
         delete state.skip[skn];
-        state.skip = {...state.skip};
       } else {
         state.skip = {...state.skip, ...{[action.skipNote]: action.skipChecked}};
       }
@@ -268,6 +289,7 @@ const Controls = (props) => {
   forceReactUpdateTrick = React.useCallback(() => updateReactTrick({}), []);
   
   rcs = reducerControlledState;
+  const notesSelected = (rcs.chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
 
   // store values so next window load can reuse
   useEffect(() => {
@@ -283,19 +305,7 @@ const Controls = (props) => {
     <div>
 
       <div>
-        <select id="selectChOrKey"
-          value={rcs.chork}
-          onChange={e =>
-            dispatch({
-              command: CMD_SET_CHORK,
-              chork: parseInt(e.currentTarget.value, 10),
-              target: e.currentTarget
-            })
-          }
-          >
-          <option value={1}>All{/* chromatic */} notes</option>
-          <option value={0}>Key notes</option>
-        </select>
+        <label>Key </label>
         <select id="selectKey"
           value={keys.findIndex(k => k.label === keys[rcs.key].label)}
           onChange={e =>
@@ -306,25 +316,44 @@ const Controls = (props) => {
             })
           }
           >
-          <optgroup label="Major Keys">{ renderKeysForKeySelection('Major') }</optgroup>
-          <optgroup label="Minor Keys">{ renderKeysForKeySelection('Minor') }</optgroup>
+          <optgroup label=" Major Keys">{ renderKeysForKeySelection('Major') }</optgroup>
+          <optgroup label=" Minor Keys">{ renderKeysForKeySelection('Minor') }</optgroup>
         </select>
-        <label> {(rcs.key < 15) ? 'Major' : 'Minor'}</label>
+        <label> {(rcs.key < 15) ? ' Major' : ' Minor'}</label>
         <span> { 
-          noteNamesInKey.map((n,i) => (
+          notesSelected.map((n,i) => (
             <span key={'sk'+i}>&nbsp;&nbsp;&nbsp;&nbsp;
-              <input type="checkbox" id={'skip'+i} value={n} disabled={false/*rcs.func !== FUNC_RANDO*/}
+              <input type="checkbox" id={'skip'+i} value={n}
                 checked={rcs.skip[n] === undefined} onChange={e => dispatch({
                   command: CMD_SET_SKIP,
                   skipChecked: ! e.currentTarget.checked,
                   skipNote: e.currentTarget.value,
                   target: e.currentTarget
                 })} />
-              <label htmlFor={'skip'+i}>{noteLabelForKey(n)}</label>
+              <label htmlFor={'skip'+i}
+              style={
+                (noteNamesInKey.indexOf(n) === -1) ? {fontSize: 'x-small'} : {fontSize: 'x-large'}
+              }
+              >{noteLabelForKey(n)}</label>
             </span>
           ))
         }</span>
+        <span className="horizSpacer"></span>
+        <select id="selectChOrKey"
+          value={rcs.chromatic}
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_CHORK,
+              chromatic: parseInt(e.currentTarget.value, 10),
+              target: e.currentTarget
+            })
+          }
+          >
+          <option value={0}>Show only notes in the key</option>
+          <option value={1}>Show all notes{/* chromatic */}</option>
+        </select>
       </div>
+      <div className="vertSpacer"></div>
       <div className="vertSpacer"></div>
 
       <div>
@@ -582,5 +611,8 @@ const Controls = (props) => {
 };
 
 const domContainer = document.querySelector('#reactRoot');
-const reactRoot = createRoot(domContainer);
+let reactRoot;
+if (!reactRoot) {
+  reactRoot = createRoot(domContainer);
+}
 reactRoot.render(<StrictMode><Controls /></StrictMode>);
