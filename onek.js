@@ -32,10 +32,10 @@ const numOfNotes = 12;
 const noteCreateX = width * .9;
 const noteDestroyX = width * .1;
 
-const NOTE = 'NOTE';
-const NOTE_PLAYED = 'NOTE_PLAYED';
-const TYPE = 'TYPE';
-const TYPE_NOTE = 'TYPE_NOTE';
+const ATTR_NOTE = 'NOTE';
+const ATTR_NOTE_PLAYED = 'NOTE_PLAYED';
+const ATTR_TYPE = 'TYPE';
+const ATTR_TYPE_NOTE = 'TYPE_NOTE';
 
 
 let quarterNote, quarterNoteFlipped, quarterNoteFlippedG, quarterNoteFlippedF,quarterNoteFlippedE, quarterNoteFlippedD, quarterNoteFlippedC, quarterNoteE, quarterNoteD, quarterNoteC, quarterNoteB, tooltip, animateNoteFunction;
@@ -423,16 +423,16 @@ function renderNote(note) {
       x: mousePos.x + 5,
       y: mousePos.y + 5,
     });
-    tooltip.text(noteLabelForKey(evt.currentTarget.getAttr(NOTE).n, keys[rcs.key]));
+    tooltip.text(noteLabelForKeyNewKonva(rcs.key, evt.currentTarget.getAttr(ATTR_NOTE)));
     tooltip.show();
   });
   newNoteK.on('mouseout', function () {
     tooltip.hide();
   });
 
-  newNoteK.setAttr(NOTE, note);
-  newNoteK.setAttr(NOTE_PLAYED, false);
-  newNoteK.setAttr(TYPE, TYPE_NOTE);
+  newNoteK.setAttr(ATTR_NOTE, note);
+  newNoteK.setAttr(ATTR_NOTE_PLAYED, false);
+  newNoteK.setAttr(ATTR_TYPE, ATTR_TYPE_NOTE);
   if (rcs.hide) {
     newNoteK.setAttr('visible', false);
   }
@@ -442,13 +442,21 @@ function renderNote(note) {
   layer.draw();
 }
 
+function noteLabelForKeyNewKonva(keyIndex, note) {
+  // need to find the note position in the key or 
+  let idx = noteNamesInKey.findIndex(n => n === note.n);
+
+  // TODO: this probably won't work for chromatic 
+  return noteLabelForKeyNew(keyIndex, idx);
+}
+
 function findFirstUnplayedKonvaNote() {
   const c = roll.getChildren();
   if (c && c.length) {
     for (let i=0; i<c.length; i++) {
       const child = c[i];
-      if (child.getAttr(TYPE) === TYPE_NOTE) {
-        const played = child.getAttr(NOTE_PLAYED);
+      if (child.getAttr(ATTR_TYPE) === ATTR_TYPE_NOTE) {
+        const played = child.getAttr(ATTR_NOTE_PLAYED);
         if (played === false) {
           return child;
         }
@@ -460,13 +468,13 @@ function findFirstUnplayedKonvaNote() {
 
 function findFirstUnplayedNote() {
   const kn = findFirstUnplayedKonvaNote();
-  return (kn) ? kn.getAttr(NOTE) : null;
+  return (kn) ? kn.getAttr(ATTR_NOTE) : null;
 }
 
 function findLeftMostNoteToPlay() {
   const g = findLeftMostGroupToPlay();
   if (g) {
-    return g.getAttr(NOTE);
+    return g.getAttr(ATTR_NOTE);
   }
   return null;
 }
@@ -476,8 +484,8 @@ function releaseNoteAtTarget() {
   heardCnt = 0;
   const konvaNote = findFirstUnplayedKonvaNote();
   if (konvaNote) {
-    stopPad(konvaNote.getAttr(NOTE).f);
-    konvaNote.setAttr(NOTE_PLAYED, true);
+    stopPad(konvaNote.getAttr(ATTR_NOTE).f);
+    konvaNote.setAttr(ATTR_NOTE_PLAYED, true);
     // always make note visible in case user toggles 'hide' back and forth
     konvaNote.setAttr('visible', true);
   }
@@ -618,7 +626,7 @@ function renderKeySignature(key) {
     acc.destroy();
   });
   keySig.length = 0;
-  keys[key].acc.forEach((accidental, ind) => {
+  KEYS[key].acc.forEach((accidental, ind) => {
     const accType = (key < 8 || (key > 15 && key < 23)) ? sharp : flat;
     const staffLine = getStaffLine(accidental , key);
     const acc = accType.clone({
@@ -650,38 +658,38 @@ for (let i=0,j=0; i<20; i++,j=(j+1)%7) {
 }
 
 function getStaffLine(note, k) {
-  let key = keys[k];
+  let key = KEYS[k];
   // handle special corner cases first
   if (
     // E=Fb is called Fb, in key Cb Major or Ab Minor
-    (note.n === notes[4] && (key.i === 14 || key.i === 29)) ||
+    (note.n === NOTES[4] && (key.i === 14 || key.i === 29)) ||
     // F=E# is called E# in key F#, C# Major or D#, A# Minor
-    (note.n === notes[5] && (key.i === 6 || key.i === 7 || key.i === 21 || key.i === 22)) ||
+    (note.n === NOTES[5] && (key.i === 6 || key.i === 7 || key.i === 21 || key.i === 22)) ||
     // C=B# is called B# in key C# Major or A# Minor
-    (note.n === notes[0] && (key.i === 7 || key.i === 22))
+    (note.n === NOTES[0] && (key.i === 7 || key.i === 22))
   ) {
     return nlm[note.n.slice(2,4) + note.l]; 
   } else if (
     // B=Cb is called Cb (and so crosses the nlm level) in keys Gb, Cb Major or Eb Minor, 
-    note.n === notes[11] && (key.i === 13 || key.i === 14 || key.i === 28 || key.i === 29)
+    note.n === NOTES[11] && (key.i === 13 || key.i === 14 || key.i === 28 || key.i === 29)
   ) {
     return nlm[note.n.slice(2,4) + (note.l+1)]; 
   } else if (
-    note.n === notes[11] || // B=Cb
-    note.n === notes[4]  || // E=Fb
-    note.n === notes[9]  || // A
-    note.n === notes[2]  || // D
-    note.n === notes[7]  || // G
-    note.n === notes[0]  || // C=B#
-    note.n === notes[5]     // F=E#
+    note.n === NOTES[11] || // B=Cb
+    note.n === NOTES[4]  || // E=Fb
+    note.n === NOTES[9]  || // A
+    note.n === NOTES[2]  || // D
+    note.n === NOTES[7]  || // G
+    note.n === NOTES[0]  || // C=B#
+    note.n === NOTES[5]     // F=E#
   ) {
     return nlm[note.n.slice(0,1) + note.l]; 
   } else if (
-    note.n === notes[10] || // Bb/A#
-    note.n === notes[3]  || // Eb/D#
-    note.n === notes[8]  || // Ab/G#
-    note.n === notes[1]  || // Db/C#
-    note.n === notes[6]     // Gb/F#
+    note.n === NOTES[10] || // Bb/A#
+    note.n === NOTES[3]  || // Eb/D#
+    note.n === NOTES[8]  || // Ab/G#
+    note.n === NOTES[1]  || // Db/C#
+    note.n === NOTES[6]     // Gb/F#
   ) {
     if (key.i < 8 || key.i > 15 && key.i < 23) {
       // use sharp name
@@ -739,7 +747,7 @@ const animateRoll = new Konva.Animation(function (frame) {
     if (konvaNoteX <= targetLineX) {
       animateRoll.stop();
       if (rcs.tone) {
-        loopsStart(konvaNote.getAttr(NOTE));
+        loopsStart(konvaNote.getAttr(ATTR_NOTE));
       }
     }
   }

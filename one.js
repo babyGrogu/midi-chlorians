@@ -1,4 +1,6 @@
-const notes = [
+//  '/' is used for common enharmonic notes used in common keys
+//  '=' is used for more uncommon enharmonic notes like (B#) used in uncommon keys like C#
+const NOTES = [
   'C=B#',   // 0
   'Db/C#',  // 1
   'D',      // 2
@@ -12,45 +14,94 @@ const notes = [
   'Bb/A#',  // 10
   'B=Cb'    // 11
 ];
-const keys = [
-  {label: 'C Major', root: notes[0], i:0},   // major, no sharps or flats
-  {label: 'G Major', root: notes[7], i:1},   // major sharps
-  {label: 'D Major', root: notes[2], i:2},
-  {label: 'A Major', root: notes[9], i:3},
-  {label: 'E Major', root: notes[4], i:4},
-  {label: 'B Major', root: notes[11], i:5},
-  {label: 'F# Major', root: notes[6], i:6},
-  {label: 'C# Major', root: notes[1], i:7},
-  {label: 'F Major', root: notes[5], i:8},   // major flats
-  {label: 'Bb Major', root: notes[10], i:9},
-  {label: 'Eb Major', root: notes[3], i:10},
-  {label: 'Ab Major', root: notes[8], i:11},
-  {label: 'Db Major', root: notes[1], i:12},
-  {label: 'Gb Major', root: notes[6], i:13},
-  {label: 'Cb Major', root: notes[11], i:14},
+const KEYS = [
+  {label: 'C Major',  root: NOTES[0],  i:0,  cofiOfKey:  0},   // major, no sharps or flats
+  {label: 'G Major',  root: NOTES[7],  i:1,  cofiOfKey:  1},   // major sharps
+  {label: 'D Major',  root: NOTES[2],  i:2,  cofiOfKey:  2},
+  {label: 'A Major',  root: NOTES[9],  i:3,  cofiOfKey:  3},
+  {label: 'E Major',  root: NOTES[4],  i:4,  cofiOfKey:  4},
+  {label: 'B Major',  root: NOTES[11], i:5,  cofiOfKey:  5},
+  {label: 'F# Major', root: NOTES[6],  i:6,  cofiOfKey:  6},
+  {label: 'C# Major', root: NOTES[1],  i:7,  cofiOfKey:  7},   //cofiOfKey=7 for NOTE[1]
+  {label: 'F Major',  root: NOTES[5],  i:8,  cofiOfKey: -1},   // major flats
+  {label: 'Bb Major', root: NOTES[10], i:9,  cofiOfKey: -2},
+  {label: 'Eb Major', root: NOTES[3],  i:10, cofiOfKey: -3},
+  {label: 'Ab Major', root: NOTES[8],  i:11, cofiOfKey: -4},
+  {label: 'Db Major', root: NOTES[1],  i:12, cofiOfKey: -5},   //cofiOfKey=-5 also for NOTE[1]
+  {label: 'Gb Major', root: NOTES[6],  i:13, cofiOfKey: -6},   //cofiOfKey to note not 1-to-1 map
+  {label: 'Cb Major', root: NOTES[11], i:14, cofiOfKey: -7},
 
-  {label: 'A Minor', root: notes[9], i:15},  // minor, no sharps or flats
-  {label: 'E Minor', root: notes[4], i:16},  // minor sharps
-  {label: 'B Minor', root: notes[11], i:17},
-  {label: 'F# Minor', root: notes[6], i:18},
-  {label: 'C# Minor', root: notes[1], i:19},
-  {label: 'G# Minor', root: notes[8], i:20},
-  {label: 'D# Minor', root: notes[3], i:21},
-  {label: 'A# Minor', root: notes[10], i:22},
-  {label: 'D Minor', root: notes[2], i:23},  // minor flats
-  {label: 'G Minor', root: notes[7], i:24},
-  {label: 'C Minor', root: notes[0], i:25},
-  {label: 'F Minor', root: notes[5], i:26},
-  {label: 'Bb Minor', root: notes[10], i:27},
-  {label: 'Eb Minor', root: notes[3], i:28},
-  {label: 'Ab Minor', root: notes[8], i:29},
+  {label: 'A Minor',  root: NOTES[9],  i:15,  cofiOfKey:  3},  // minor, no sharps or flats
+  {label: 'E Minor',  root: NOTES[4],  i:16,  cofiOfKey:  4},  // minor sharps
+  {label: 'B Minor',  root: NOTES[11], i:17,  cofiOfKey:  5},
+  {label: 'F# Minor', root: NOTES[6],  i:18,  cofiOfKey:  6},
+  {label: 'C# Minor', root: NOTES[1],  i:19,  cofiOfKey:  7},
+  {label: 'G# Minor', root: NOTES[8],  i:20,  cofiOfKey:  8},
+  {label: 'D# Minor', root: NOTES[3],  i:21,  cofiOfKey:  9},
+  {label: 'A# Minor', root: NOTES[10], i:22,  cofiOfKey:  10},
+  {label: 'D Minor',  root: NOTES[2],  i:23,  cofiOfKey:  2},  // minor flats
+  {label: 'G Minor',  root: NOTES[7],  i:24,  cofiOfKey:  1},
+  {label: 'C Minor',  root: NOTES[0],  i:25,  cofiOfKey:  0},
+  {label: 'F Minor',  root: NOTES[5],  i:26,  cofiOfKey: -1},
+  {label: 'Bb Minor', root: NOTES[10], i:27,  cofiOfKey: -2},
+  {label: 'Eb Minor', root: NOTES[3],  i:28,  cofiOfKey: -3},
+  {label: 'Ab Minor', root: NOTES[8],  i:29,  cofiOfKey: -4},
 ];
+
+//  major circle of fifths       minor circle of fifths (major rotate -90 degrees) 
+//           C=B#                           a
+//      F=E#      G                     d       e
+//    B♭/A#           D             g              b
+// E♭/D#                A        c                   f♯  (there is no Gb minor use f♯)
+//    A♭/G#           E=Fb          f              c♯  (there is no Db minor use c♯)
+//     D♭/C♯     B=C♭                 b♭/a♯    a♭/g♯
+//         G♭/F♯                           e♭/d♯
+//
+// COFI=circle of fifths index
+// COFI data maybe could be shoved into the KEYS array if the cofi attribute was an array
+// of values but that would make it difficult to visualize and debug,
+// this array  makes it easy to understand what the data means
+
+// not using this implementation of COFI since it didn't work well for chromatic keys
+const COFI_OF_DEGREE_2NOTES = [
+  {cofi:  0, note: NOTES[0],  },
+  {cofi:  1, note: NOTES[7],  }, // go around circle clock-wise (in fifths)
+  {cofi:  2, note: NOTES[2],  },
+  {cofi:  3, note: NOTES[9],  },
+  {cofi:  4, note: NOTES[4],  },
+  {cofi:  5, note: NOTES[11], },
+  {cofi:  6, note: NOTES[6],  },
+  {cofi:  7, note: NOTES[1],  },
+  {cofi:  8, note: NOTES[8],  },
+  {cofi:  9, note: NOTES[3],  },
+  {cofi: 10, note: NOTES[10], },
+  {cofi: 11, note: NOTES[5],  },
+  {cofi: 12, note: NOTES[0],  },
+  {cofi: -1, note: NOTES[5],  }, // go around circle counter-clock-wise (in fourths)
+  {cofi: -2, note: NOTES[10], },
+  {cofi: -3, note: NOTES[3],  },
+  {cofi: -4, note: NOTES[8],  },
+  {cofi: -5, note: NOTES[1],  },
+  {cofi: -6, note: NOTES[6],  },
+  {cofi: -7, note: NOTES[11], },
+  {cofi: -8, note: NOTES[4],  },
+  {cofi: -9, note: NOTES[9],  },
+  {cofi:-10, note: NOTES[2],  },
+  {cofi:-11, note: NOTES[7],  },
+  {cofi:-12, note: NOTES[0],  },
+];
+
+// the offsets from the key root
+const COFI_MAJOR_DIATONIC  = [0,    2,     4, -1,    1,     3,     5];// I, II, III, IV, V, VI, VII
+const COFI_MINOR_DIATONIC  = [0,    2,    -3, -1,    1,    -4,    -2];// VI, VII, I, II, III, IV, V
+const COFI_MAJOR_CHROMATIC = [0, 7, 2, 9,  4, -1, 0, 1, 8,  3, 10, 5]; // previous +7mod12
+const COFI_MINOR_CHROMATIC = [0, 7, 2, 0,  3, -1, 0, 1, 0, -4, -2,-2]; // previous +7mod12
 
 //const CLEF_BASS = 'bass';
 //const CLEF_TREBLE = 'treble';
-const KEY_MAJOR_HALF_STEPS = [2,2,1,2,2,2,1];
-const KEY_MINOR_HALF_STEPS = [2,1,2,2,1,2,2]
-const KEY_CHROMATIC_HALF_STEPS = [1,1,1,1,1,1,1,1,1,1,1,1]
+const MAJOR_SCALE_HALF_STEPS = [2,2,1,2,2,2,1];
+const MINOR_SCALE_HALF_STEPS = [2,1,2,2,1,2,2]
+const CHROMATIC_SCALE_HALF_STEPS = [1,1,1,1,1,1,1,1,1,1,1,1]
 const NONE = 'none';
 
 const LOCAL_STORAGE_KEY = 'babyGrogu';
@@ -87,7 +138,7 @@ let initialState;
 let notesActualInKeyForRange = [];
 
 
-let keySteps = KEY_MAJOR_HALF_STEPS;
+let keySteps = MAJOR_SCALE_HALF_STEPS;
 let chooseNoteTimer = -1;
 let animationFramesCtr = 0;
 let heardCnt = 0;
@@ -286,7 +337,7 @@ function updatePitch() {
  	} else {
 	 	pitchElem.innerText = Math.round( noteFreq ) ;
 	 	let note = noteFromPitch( noteFreq );
-		noteElem.innerHTML = notes[note%12];
+		noteElem.innerHTML = NOTES[note%12];
 
     if (notesMinimum[0].f <= noteFreq && noteFreq < notesActual[notesActual.length-1].f) {
       const noteHeard = binarySearch(noteFreq);
@@ -350,7 +401,7 @@ function createNotesArrays() {
 
   // 89 go one note higher so array has the MINIMUM above the last 88th piano note
   for (let i=0; i<89; i++) {
-    note = notes[(9 + i + 12) % 12]; // TODO: why did id put that '+ 12' there?
+    note = NOTES[(9 + i + 12) % 12]; // TODO: why did id put that '+ 12' there?
     level = Math.floor((9 + i)/12);
     freq = a0*Math.pow(TWELFTH_ROOT_OF_TWO, i);
 
@@ -372,14 +423,14 @@ function createNotesArrays() {
 function calculateNoteNamesInKey(keyNum, chromatic) {
   const noteNamesInKeyLocal = [];
   let steps;
-  if (chromatic) steps = KEY_CHROMATIC_HALF_STEPS
-  else steps = keyNum < 15 ? KEY_MAJOR_HALF_STEPS: KEY_MINOR_HALF_STEPS;
+  if (chromatic) steps = CHROMATIC_SCALE_HALF_STEPS
+  else steps = keyNum < 15 ? MAJOR_SCALE_HALF_STEPS: MINOR_SCALE_HALF_STEPS;
 
   // figure out what notes names are in the key
-  for (let i = notes.indexOf(keys[keyNum].root), j = 0;
+  for (let i = NOTES.indexOf(KEYS[keyNum].root), j = 0;
        j < steps.length;
-       i = (i + steps[j]) % notes.length, j++) {
-    const noteInKey = notes[i];
+       i = (i + steps[j]) % NOTES.length, j++) {
+    const noteInKey = NOTES[i];
     noteNamesInKeyLocal.push(noteInKey);
   }
   return noteNamesInKeyLocal;
@@ -395,19 +446,19 @@ function createBassClefKeySignatures() {
       const accNote = accRange.find(n => n.n === accidentalName);
       order.push(accNote);
       const newOrder = [...order];
-      keys[i].acc = newOrder;
-      keys[i+15].acc = newOrder;  // relative minor key has same accidentals
+      KEYS[i].acc = newOrder;
+      KEYS[i+15].acc = newOrder;  // relative minor key has same accidentals
     }
   }
 
   // sharp signatures range on staff line from A1 to G2
   let accidentalSigRange = notesActual.slice(12, 24);
-  keys[0].acc = [];
+  KEYS[0].acc = [];
   makeOrder(1, 8, 6, accidentalSigRange);
 
   // flat signatures range on staff line from F1 to E2
   accidentalSigRange = notesActual.slice(7, 20);
-  keys[15].acc = [];
+  KEYS[15].acc = [];
   makeOrder(8, 15, 3, accidentalSigRange);
 }
 

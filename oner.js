@@ -72,92 +72,59 @@ function noteLabelForRange(str) {
   return str;
 }
 
-/*
- looking high level at this function and getStaffLine(note)
- it looks like they might/probably do the same thing.
- This function uses the keys in the if statements (now 30 keys) and
- getStaffLine uses the notes and keys in the if statements.
- Since at first there were 12 notes and a few keys noteLabelForKey's way
- made sense but now there are 30 keys and 12 notes so getStaffLine is probably
- easier
- maybe rewrite when done with other things
-*/
-function noteLabelForKey(str) {
-  const ki = rcs.key;
-  if (ki === 0 || // majors
-      ki === 1 ||
-      ki === 2 ||
-      ki === 3 ||
-      ki === 4 ||
-      ki === 5 ||
-      ki === 15 ||  // minors
-      ki === 16 ||
-      ki === 17 ||
-      ki === 18 ||
-      ki === 19 ||
-      ki === 20
-  ) {
-    str = sp(str, '=', 0);
-    str = sp(str, '/', 1);
-  }
-  else if ( // handle first 2 enharmonic special cases
-      ki === 6 ||    //F#
-      ki === 21      //D#
-    )
-  {
-    if (str === notes[0] || str === notes[4] ||  str === notes[11]) {
-      str = sp(str, '=', 0); // in key F# note 'C=B#' is C, 'B=Cb' is B and 'E=Fb' is E
-    } else {
-      str = sp(str, '=', 1); // otherwise use the sharps
-    }
-    str = sp(str, '/', 1);
-  }
-  else if ( // handle second 2 enharmonic special cases
-      ki === 7 ||    //C#
-      ki === 22      //A#
-    )
-  {
-    if (str === notes[4] ||  str === notes[11]) {
-      str = sp(str, '=', 0); // in key F# note 'B=Cb' is B and 'E=Fb' is E
-    } else {
-      str = sp(str, '=', 1); // otherwise use the sharps
-    }
-    str = sp(str, '/', 1);
-  }
-  else if (ki === 8 ||
-           ki === 9 ||
-           ki === 10 ||
-           ki === 11 ||
-           ki === 12 ||
-           ki === 23 ||
-           ki === 24 ||
-           ki === 25 ||
-           ki === 26 ||
-           ki === 27
-  ) {
-    str = sp(str, '=', 0);
-    str = sp(str, '/', 0);
-  } else if ( // handle enharmonic special cases
-           ki === 13 ||   // Gb Major
-           ki === 14 ||   // Cb Major
-           ki === 28 ||   // Eb Minor
-           ki === 29      // Ab Minor
-    ) {  
-    if (str === notes[11] /*for Gb Major and Eb Minor and Ab Minor*/ ||
-        str === notes[4] /*for Cb Major and Ab Minor*/) {
-      str = sp(str, '=', 1);
-    } else {
-      str = sp(str, '=', 0);
-    }
-    str = sp(str, '/', 0);
-  }
+// i'm smarter than AI
+function createNoteLabels(noteNames) {
+  const k = rcs.key;
+  const sharp = (k < 8 || k > 14 && k < 23);
+  const enharmonicCases = (k === 6 || k === 7 || k === 13 || k === 14 || k === 21 || k === 22 ||
+                      k === 28 || k === 29); // majors:F#M,C#M,GbM,CbM    minors:D#m,A#m,Ebm,Abm
 
+  return noteNames.map(n => {
+    if (n.length === 1) return n; // G D A
+    const [l, r] = (n.indexOf('=') > -1) ? n.split('=') : n.split('/');
+
+    // handling the few characters this way is easier than implementing a general
+    // Scale Degree Factor SDF algo where each note 'CDEFGAB' would have one note in the scale
+    if (enharmonicCases) {
+      if ((n === NOTES[5]  && (k === 6 ||  k === 7 ||  k === 21 || k === 22)) ||
+          (n === NOTES[0]  && (            k === 7 ||              k === 22)) ||
+          (n === NOTES[11] && (k === 13 || k === 14 || k === 28 || k === 29)) ||
+          (n === NOTES[4]  && (            k === 14 ||             k === 29))
+         ) return r;
+    }
+
+    if (sharp) {
+      return (l.indexOf('b') > -1) ? r : l;
+    } else return l;
+  });
+}
+
+// not using this implementation of COFI since it didn't work well for chromatic keys
+function noteLabelForKeyNew(noteIndexInKeyOrChromatic) {
+  const cofiOfKeyIndex = KEYS[rcs.key].cofiOfKey;
+  let cofiOffsets = null;
+  if (rcs.key < 15) {
+    cofiOffsets = (rcs.chromatic ? COFI_MAJOR_CHROMATIC: COFI_MAJOR_DIATONIC);
+  } else {
+    cofiOffsets = (rcs.chromatic ? COFI_MINOR_CHROMATIC: COFI_MINOR_DIATONIC);
+  }
+  const offset = cofiOffsets[noteIndexInKeyOrChromatic];
+  const cofiValueToLookUp = (cofiOfKeyIndex + offset) % 12;
+  const ci = COFI_OF_DEGREE_2NOTES.findIndex(c => c.cofi === cofiValueToLookUp);
+  const n = COFI_OF_DEGREE_2NOTES[ci].note;
+  const nl = n.length;
+  let s = '????'; // string to return
+  if (nl === 1) s = n; // G D A
+  else if (cofiValueToLookUp > -2 && cofiValueToLookUp < 6) s = n[0]; // first char
+  else if (cofiValueToLookUp > 5) s = n[nl-2] + n[nl-1]; // last two chars
+  // need to find the flat in either first two chars or last two
+  else if (cofiValueToLookUp < -1) s =(n.indexOf('b') === 1) ? n[0]+n[1] : n[nl-2] + n[nl-1];
   // ♮ 9838 NATURAL SIGN
   // ♭ 9837 FLAT SIGN
   // ♯ 9839 SHARP SIGN
-  str = str.replace(/#/,String.fromCharCode(9839));
-  str = str.replace(/b/,String.fromCharCode(9837));
-  return str;
+  s = s.replace(/#/,String.fromCharCode(9839)); // this looks more like the Konva.Path defined one
+  s = s.replace(/b/,String.fromCharCode(9837));
+  return s;
 }
 
 function renderNoteRangeForClef() {
@@ -168,7 +135,7 @@ function renderNoteRangeForClef() {
 }
 
 function renderKeysForKeySelection(type) {
-  return keys.map((k,i) => (
+  return KEYS.map((k,i) => (
     (k.label.indexOf(type) > 0) && <option key={'ky'+i} value={i} label={k.label.split(' ')[0]} />
   ));
 }
@@ -289,7 +256,12 @@ const Controls = (props) => {
   forceReactUpdateTrick = React.useCallback(() => updateReactTrick({}), []);
   
   rcs = reducerControlledState;
-  const notesSelected = (rcs.chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
+  const noteNamesInKeyOrChromatic = (rcs.chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
+
+  // build up array of noteLabels using the above
+  //  - noteNamesInKeyOrChromatic 
+  //  - rcs.key knowledge of if it is a list of sharp or flats 
+  const noteLabelsInKeyOrChromatic = createNoteLabels(noteNamesInKeyOrChromatic);
 
   // store values so next window load can reuse
   useEffect(() => {
@@ -307,7 +279,7 @@ const Controls = (props) => {
       <div>
         <label>Key </label>
         <select id="selectKey"
-          value={keys.findIndex(k => k.label === keys[rcs.key].label)}
+          value={KEYS.findIndex(k => k.label === KEYS[rcs.key].label)}
           onChange={e =>
             dispatch({
               command: CMD_SET_KEY,
@@ -321,7 +293,7 @@ const Controls = (props) => {
         </select>
         <label> {(rcs.key < 15) ? ' Major' : ' Minor'}</label>
         <span> { 
-          notesSelected.map((n,i) => (
+          noteNamesInKeyOrChromatic.map((n,i) => (
             <span key={'sk'+i}>&nbsp;&nbsp;&nbsp;&nbsp;
               <input type="checkbox" id={'skip'+i} value={n}
                 checked={rcs.skip[n] === undefined} onChange={e => dispatch({
@@ -334,7 +306,7 @@ const Controls = (props) => {
               style={
                 (noteNamesInKey.indexOf(n) === -1) ? {fontSize: 'x-small'} : {fontSize: 'x-large'}
               }
-              >{noteLabelForKey(n)}</label>
+              >{ noteLabelsInKeyOrChromatic[i] }</label>
             </span>
           ))
         }</span>
