@@ -423,7 +423,7 @@ function renderNote(note) {
       x: mousePos.x + 5,
       y: mousePos.y + 5,
     });
-    tooltip.text(noteLabelForKeyNewKonva(rcs.key, evt.currentTarget.getAttr(ATTR_NOTE)));
+    tooltip.text(noteOnStaffTooltipLabel(evt.currentTarget.getAttr(ATTR_NOTE)));
     tooltip.show();
   });
   newNoteK.on('mouseout', function () {
@@ -441,13 +441,10 @@ function renderNote(note) {
   beatCtr++;
   layer.draw();
 }
-
-function noteLabelForKeyNewKonva(keyIndex, note) {
-  // need to find the note position in the key or 
-  let idx = noteNamesInKey.findIndex(n => n === note.n);
-
-  // TODO: this probably won't work for chromatic 
-  return noteLabelForKeyNew(keyIndex, idx);
+function noteOnStaffTooltipLabel(noteK) {
+  const label = getLabelForNote(noteK.n);
+  const level = noteK.l;
+  return  label + ' ' + level;
 }
 
 function findFirstUnplayedKonvaNote() {

@@ -72,8 +72,14 @@ function noteLabelForRange(str) {
   return str;
 }
 
-// i'm smarter than AI
-function createNoteLabels(noteNames) {
+function getLabelForNote(noteString) {
+  const noteNames = (rcs.chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
+  const i = noteNames.indexOf(noteString);
+  return getListOfNotesToBeSelected()[i];
+}
+
+function getListOfNotesToBeSelected() {
+  const noteNames = (rcs.chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
   const k = rcs.key;
   const sharp = (k < 8 || k > 14 && k < 23);
   const enharmonicCases = (k === 6 || k === 7 || k === 13 || k === 14 || k === 21 || k === 22 ||
@@ -135,12 +141,16 @@ function controlsReducer(state, action) {
       newState = {...state,  chromatic: action.chromatic, skip: {}};
       setUpKey(newState);
       renderKeySignature(newState.key)
+      clearNotes();
+      if (animateRoll.isRunning()) startIt();
       action.target.blur();
       return newState;
     case (CMD_SET_KEY):
       newState = {...state, key: action.key, skip: {}};
       setUpKey(newState);
       renderKeySignature(newState.key)
+      clearNotes();
+      if (animateRoll.isRunning()) startIt();
       action.target.blur(); // remove focus from widget so typing does not change selection
       return newState;
     case (CMD_SET_RANGE_LOW):
@@ -228,12 +238,7 @@ const Controls = (props) => {
   forceReactUpdateTrick = React.useCallback(() => updateReactTrick({}), []);
   
   rcs = reducerControlledState;
-  const noteNamesInKeyOrChromatic = (rcs.chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
-
-  // build up array of noteLabels using the above
-  //  - noteNamesInKeyOrChromatic 
-  //  - rcs.key knowledge of if it is a list of sharp or flats 
-  const noteLabelsInKeyOrChromatic = createNoteLabels(noteNamesInKeyOrChromatic);
+  const noteLabelsInKeyOrChromatic = getListOfNotesToBeSelected();
 
   // store values so next window load can reuse
   useEffect(() => {
@@ -265,7 +270,7 @@ const Controls = (props) => {
         </select>
         <label> {(rcs.key < 15) ? ' Major' : ' Minor'}</label>
         <span> { 
-          noteNamesInKeyOrChromatic.map((n,i) => (
+          noteLabelsInKeyOrChromatic.map((n,i) => (
             <span key={'sk'+i}>&nbsp;&nbsp;&nbsp;&nbsp;
               <input type="checkbox" id={'skip'+i} value={n}
                 checked={rcs.skip[n] === undefined} onChange={e => dispatch({

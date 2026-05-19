@@ -365,7 +365,7 @@ function createNotesArrays() {
 
   // 89 go one note higher so array has the MINIMUM above the last 88th piano note
   for (let i=0; i<89; i++) {
-    note = NOTES[(9 + i + 12) % 12]; // TODO: why did id put that '+ 12' there?
+    note = NOTES[(9 + i) % 12];
     level = Math.floor((9 + i)/12);
     freq = a0*Math.pow(TWELFTH_ROOT_OF_TWO, i);
 
