@@ -99,34 +99,6 @@ function createNoteLabels(noteNames) {
   });
 }
 
-// not using this implementation of COFI since it didn't work well for chromatic keys
-function noteLabelForKeyNew(noteIndexInKeyOrChromatic) {
-  const cofiOfKeyIndex = KEYS[rcs.key].cofiOfKey;
-  let cofiOffsets = null;
-  if (rcs.key < 15) {
-    cofiOffsets = (rcs.chromatic ? COFI_MAJOR_CHROMATIC: COFI_MAJOR_DIATONIC);
-  } else {
-    cofiOffsets = (rcs.chromatic ? COFI_MINOR_CHROMATIC: COFI_MINOR_DIATONIC);
-  }
-  const offset = cofiOffsets[noteIndexInKeyOrChromatic];
-  const cofiValueToLookUp = (cofiOfKeyIndex + offset) % 12;
-  const ci = COFI_OF_DEGREE_2NOTES.findIndex(c => c.cofi === cofiValueToLookUp);
-  const n = COFI_OF_DEGREE_2NOTES[ci].note;
-  const nl = n.length;
-  let s = '????'; // string to return
-  if (nl === 1) s = n; // G D A
-  else if (cofiValueToLookUp > -2 && cofiValueToLookUp < 6) s = n[0]; // first char
-  else if (cofiValueToLookUp > 5) s = n[nl-2] + n[nl-1]; // last two chars
-  // need to find the flat in either first two chars or last two
-  else if (cofiValueToLookUp < -1) s =(n.indexOf('b') === 1) ? n[0]+n[1] : n[nl-2] + n[nl-1];
-  // ♮ 9838 NATURAL SIGN
-  // ♭ 9837 FLAT SIGN
-  // ♯ 9839 SHARP SIGN
-  s = s.replace(/#/,String.fromCharCode(9839)); // this looks more like the Konva.Path defined one
-  s = s.replace(/b/,String.fromCharCode(9837));
-  return s;
-}
-
 function renderNoteRangeForClef() {
   const notesForRangeSelectors = notesActual.slice(2, 34+1); // 2=B0 , 34=G3
   return notesForRangeSelectors.map(n => {
