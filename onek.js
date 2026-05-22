@@ -13,8 +13,6 @@ const lineSpacing = 16;
 const linesInStaff = 5;
 const topLine = 20;
 
-//const noteWidth = 48;
-//const noteSpacing = 32;
 const noteTotalWidth = 80; //noteSpacing + noteWidth;
 const noteRadiusX = 6;
 const noteRadiusY = 8;
@@ -99,7 +97,6 @@ function initKonva(initialStateKey) {
   createAndCacheElements();
 
   drawBassClef();
-  //layer.add(natural.clone({x:23,y:4}));
 
   tooltip = new Konva.Text({
         text: '',
@@ -334,8 +331,8 @@ function createAndCacheElements() {
 
   natural = new Konva.Path({
     fill: 'black',
-    scaleX: 0.50,
-    scaleY: 0.50,
+    scaleX: 0.90,
+    scaleY: 0.90,
     data: 'M 0,8.880 V 36.288 h -1.248 V 26.016 l -6.672,1.728 V 0 h 1.2 v 10.704 l 6.72,-1.824 z m -6.72,6.432 v 7.536 l 5.472,-1.44 v -7.536 l -5.472,1.44 z',
   });
   natural.cache();
@@ -346,6 +343,7 @@ function renderNote(note) {
   // get noteIndex to staff line mapping given the instrument, and key
   let noteK;
   let staffLine = getStaffLine(note, rcs.key);
+  // figure out which note representation is to be rendered
   switch(true) {
     case (staffLine === 0):
       noteK = quarterNoteFlippedG;
@@ -398,19 +396,29 @@ function renderNote(note) {
     roll.add(h);
   }
 
-  // create sharp/flat/natural here at noteInsertionPoint minus a bit
-  // NOTE: test with HIDE functionality
-  // NOTE: have to handle rendering the 'natural' symbol
-  //        for when in key G the regular F note is to be denoted
-
-  // if outside the key AND sharp or flat
-  let idx = noteNamesInKey.findIndex(n => n === note.n);
-  if (idx === -1) {
-    const sh = sharp.clone({
-      x: noteInsertionPoint - 60,
-      y: lineSpacing * staffLine/2 - 68
-    });
-    roll.add(sh);
+  if (rcs.chromatic) {
+    let idx = noteNamesInKey.findIndex(n => n === note.n);
+    // if not is not in the key then need to figure out that accidental to use
+    // this logic works for all the non-enharmonic keys so 0-5, 8-12, 15-20, 23-27
+    if (idx === -1) {
+      const c2 = note.n[1];
+      const label = getLabelForNote(note.n);
+      let accidental;
+      if (label.length == 2) { // label is a sharp or flat and not in key
+        const accType = (label[1] === '#') ? sharp : flat;
+        accidental = accType.clone({
+          x: noteInsertionPoint - 60 , // flat & sharp offset
+          y: lineSpacing * staffLine/2 - 68 // flat & sharp offset
+        });
+      } else {
+        accidental = natural.clone({
+          x: noteInsertionPoint - 15, // natural offset
+          y: lineSpacing * staffLine/2 - 16 // natural offset
+        });
+      }
+      if (rcs.hide) accidental.setAttr('visible', false);
+      roll.add(accidental);
+    }
   }
 
   const newNoteK = noteK.clone({
@@ -433,6 +441,8 @@ function renderNote(note) {
   newNoteK.setAttr(ATTR_NOTE, note);
   newNoteK.setAttr(ATTR_NOTE_PLAYED, false);
   newNoteK.setAttr(ATTR_TYPE, ATTR_TYPE_NOTE);
+
+
   if (rcs.hide) {
     newNoteK.setAttr('visible', false);
   }
@@ -441,6 +451,7 @@ function renderNote(note) {
   beatCtr++;
   layer.draw();
 }
+
 function noteOnStaffTooltipLabel(noteK) {
   const label = getLabelForNote(noteK.n);
   const level = noteK.l;
@@ -468,6 +479,7 @@ function findFirstUnplayedNote() {
   return (kn) ? kn.getAttr(ATTR_NOTE) : null;
 }
 
+/*
 function findLeftMostNoteToPlay() {
   const g = findLeftMostGroupToPlay();
   if (g) {
@@ -475,6 +487,7 @@ function findLeftMostNoteToPlay() {
   }
   return null;
 }
+*/
 
 function releaseNoteAtTarget() {
   startTimerOrPauseTimerIsRunning = false;
@@ -594,6 +607,7 @@ function generateDescendingKeyNote() {
 }
 
 function clearNotes() {
+  lastNoteGenerated = {n:-1};
   const c = roll.getChildren();
   if (c && c.length) {
     let restart = animateRoll.isRunning() || startTimerOrPauseTimerIsRunning;
@@ -605,27 +619,14 @@ function clearNotes() {
   }
 }
 
-function testRenderAscendingNotes() {
-  animateNoteFunction = generateAscendingKeyNote;
-}
-
-function testRenderLowestKeyNotes() {
-  destroyAllNotes();
-  const firstNoteOfKeyIndex = notesActualInKeyForRange.findIndex(n => n.n === rcs.key.root);
-  const testNotes = notesActualInKeyForRange.slice(firstNoteOfKeyIndex,firstNoteOfKeyIndex+8);
-  testNotes.forEach(n => {
-    renderNote(n);
-  });
-}
-
-function renderKeySignature(key) {
+function renderKeySignature(keyIndex) {
   keySig.forEach(acc => {
     acc.destroy();
   });
   keySig.length = 0;
-  KEYS[key].acc.forEach((accidental, ind) => {
-    const accType = (key < 8 || (key > 15 && key < 23)) ? sharp : flat;
-    const staffLine = getStaffLine(accidental , key);
+  KEYS[keyIndex].acc.forEach((accidental, ind) => {
+    const accType = (isSharpKey(keyIndex)) ? sharp : flat;
+    const staffLine = getStaffLine(accidental, keyIndex);
     const acc = accType.clone({
       x: ind * 10 + 23,
       y: lineSpacing * staffLine/2 - 48
@@ -636,7 +637,7 @@ function renderKeySignature(key) {
   layer.draw();
 }
 
-const nlm = {}; // noteLineMap for bass clef
+const nlm = {}; // note to staff line map for bass clef
 let octaveLevel = 3;
 const staffLines = 'GFEDCBA'.split(''); // starting at top G, 3rd line above staff
 for (let i=0,j=0; i<20; i++,j=(j+1)%7) {
@@ -654,8 +655,8 @@ for (let i=0,j=0; i<20; i++,j=(j+1)%7) {
   nlm[h] = i;
 }
 
-function getStaffLine(note, k) {
-  let key = KEYS[k];
+function getStaffLine(note, keyIndex) {
+  let key = KEYS[keyIndex];
   // handle special corner cases first
   if (
     // E=Fb is called Fb, in key Cb Major or Ab Minor
@@ -688,7 +689,7 @@ function getStaffLine(note, k) {
     note.n === NOTES[1]  || // Db/C#
     note.n === NOTES[6]     // Gb/F#
   ) {
-    if (key.i < 8 || key.i > 15 && key.i < 23) {
+    if (isSharpKey(keyIndex)) {
       // use sharp name
       return nlm[note.n.slice(3,5) + note.l];
     } else {
@@ -769,4 +770,17 @@ function drawBassClef() {
     */
   });
   layer.add(apathy);
+}
+
+function testRenderAscendingNotes() {
+  animateNoteFunction = generateAscendingKeyNote;
+}
+
+function testRenderLowestKeyNotes() {
+  destroyAllNotes();
+  const firstNoteOfKeyIndex = notesActualInKeyForRange.findIndex(n => n.n === rcs.key.root);
+  const testNotes = notesActualInKeyForRange.slice(firstNoteOfKeyIndex,firstNoteOfKeyIndex+8);
+  testNotes.forEach(n => {
+    renderNote(n);
+  });
 }

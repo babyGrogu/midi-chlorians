@@ -436,8 +436,10 @@ function pad(freq) {
 
   var attack = 0.017;
   var peakTime = t + attack;
-  var sawPeak = 0.44 * peakScale;
-  var squarePeak = 0.5 * sawPeak;
+  var volume = 0.2;  // TODO: make into a slider in jsx
+  var sawPeak = 0.44 * peakScale * volume;
+  var squarePeak = 0.5 * sawPeak * volume;
+
 
   var filter = audioContext.createBiquadFilter();
   filter.connect(audioContext.destination);
@@ -629,6 +631,7 @@ function startIt() {
 }
 
 function stopIt() {
+  startTimerOrPauseTimerIsRunning = false;
   animateRoll.stop();
   stopPadAll();
 }

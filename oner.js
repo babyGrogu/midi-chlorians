@@ -58,17 +58,16 @@ function findChangesFromDefault(obj) {
   return c;
 }
 
+function isSharpKey(k) {
+  return (k < 8 || (k > 14 && k < 23))
+}
 function sp(s, ss, i) {
   return (s.indexOf(ss) > -1) ? s.split(ss)[i]: s;
 }
 // input strings are note names from notesActual that are in the range
 function noteLabelForRange(str) {
   str = sp(str, '=', 0);
-  if (rcs.key < 8 || (rcs.key > 14 && rcs.key < 23)) {
-    str = sp(str, '/', 1);
-  } else {
-    str = sp(str, '/', 0);
-  }
+  str = (isSharpKey(rcs.key)) ? sp(str, '/', 1) : sp(str, '/', 0);
   return str;
 }
 
@@ -81,7 +80,7 @@ function getLabelForNote(noteString) {
 function getListOfNotesToBeSelected() {
   const noteNames = (rcs.chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
   const k = rcs.key;
-  const sharp = (k < 8 || k > 14 && k < 23);
+  const sharp = isSharpKey(k);
   const enharmonicCases = (k === 6 || k === 7 || k === 13 || k === 14 || k === 21 || k === 22 ||
                       k === 28 || k === 29); // majors:F#M,C#M,GbM,CbM    minors:D#m,A#m,Ebm,Abm
 
@@ -238,6 +237,7 @@ const Controls = (props) => {
   forceReactUpdateTrick = React.useCallback(() => updateReactTrick({}), []);
   
   rcs = reducerControlledState;
+  const noteNamesInKeyOrChromatic = (rcs.chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
   const noteLabelsInKeyOrChromatic = getListOfNotesToBeSelected();
 
   // store values so next window load can reuse
@@ -270,7 +270,7 @@ const Controls = (props) => {
         </select>
         <label> {(rcs.key < 15) ? ' Major' : ' Minor'}</label>
         <span> { 
-          noteLabelsInKeyOrChromatic.map((n,i) => (
+          noteNamesInKeyOrChromatic.map((n,i) => (
             <span key={'sk'+i}>&nbsp;&nbsp;&nbsp;&nbsp;
               <input type="checkbox" id={'skip'+i} value={n}
                 checked={rcs.skip[n] === undefined} onChange={e => dispatch({
