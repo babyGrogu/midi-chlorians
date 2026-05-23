@@ -93,7 +93,8 @@ const defaultState = {
   loops: 1,
   loopPlayTime: 800,
   loopPauseTime: 0,
-  heardCntReq: 23,
+  release: true,
+  sensedThreshold: 23,
   beep: false,
   func: FUNC_RANDO,
   skip: {},
@@ -104,9 +105,9 @@ let notesActualInKeyForRange = [];
 
 let keySteps = MAJOR_SCALE_HALF_STEPS;
 let chooseNoteTimer = -1;
-let animationFramesCtr = 0;
-let heardCnt = 0;
-let pitchElem, noteElem, numCorrect, detuneElem, detuneAmount, lastPlayed;
+//let animationFramesCtr = 0;
+let sensedCnt = 0;
+let pitchElem, noteElem, sensedEle, detuneElem, detuneAmount, lastPlayed;
 let loopNote, loopsCtr, padTimerStart, padTimerStop, timeoutThird, timeoutFifth, timeoutSeventh;
 let padFreqs = {};
 let inited =  false; // inited doesn't have a UI setting so keeping out of rcs
@@ -126,7 +127,7 @@ let buf = new Float32Array( 2048 );
 window.onload = function () {
   pitchElem = document.getElementById("pitch");
   noteElem = document.getElementById("note");
-  numCorrect = document.getElementById("numCorrect");
+  sensedEle = document.getElementById("sensed");
   detuneElem = document.getElementById("detune");
   detuneAmount = document.getElementById("detune_amt");
   lastPlayed = document.getElementById("lastPlayed");
@@ -293,7 +294,7 @@ function updatePitch() {
 	analyser.getFloatTimeDomainData( buf );
 	var noteFreq = autoCorrelate( buf, audioContext.sampleRate );
 
-  animationFramesCtr++;
+  //animationFramesCtr++;
  	if (noteFreq == -1) {
 	 	  pitchElem.innerText = "--";
 		  noteElem.innerText = "-";
@@ -304,25 +305,29 @@ function updatePitch() {
 		noteElem.innerHTML = NOTES[note%12];
 
     if (notesMinimum[0].f <= noteFreq && noteFreq < notesActual[notesActual.length-1].f) {
-      const noteHeard = binarySearch(noteFreq);
-      if (noteHeard) {
-        noteElem.innerHTML = noteHeard.n + ' ' + noteHeard.l + ' ' + noteHeard.f;
+      const noteSensed = binarySearch(noteFreq);
+      if (noteSensed) {
+        noteElem.innerHTML = noteSensed.n + ' ' + noteSensed.l + ' ' + noteSensed.f;
 
         const firstUnplayedNote = findFirstUnplayedNote();
-        if (firstUnplayedNote && noteHeard.n === firstUnplayedNote.n &&
-            (rcs.octEq ? true : noteHeard.l === firstUnplayedNote.l)) {
-          if (heardCnt >= rcs.heardCntReq) {
-            lastPlayed.innerHTML = 'Correctly played: ' + noteHeard.n +
-              ' ' + firstUnplayedNote.l + '=' + noteHeard.l;
-            if (tone && loopsCtr < 1) {
+        if (firstUnplayedNote && noteSensed.n === firstUnplayedNote.n &&
+            (rcs.octEq ? true : noteSensed.l === firstUnplayedNote.l)) {
+          sensedCnt++;
+          if (rcs.release && sensedCnt >= rcs.sensedThreshold) {
+            //lastPlayed.innerHTML = 'Previous note: ' + noteSensed.n;
+            //if (tone && loopsCtr < 1) {
               releaseNoteAtTarget();
-            }
+            //}
           }
-          numCorrect.innerHTML = heardCnt + '/' + rcs.heardCntReq;
-          heardCnt++;
+        }
+        if (rcs.hide) {
+          sensedEle.innerHTML = '';
+        } else {
+          const ss = (rcs.release) ? ' Threshold: ' + rcs.sensedThreshold : '';
+          sensedEle.innerHTML = 'Sensed: ' + sensedCnt + ss;
         }
       } else {
-        console.warn('noteHeard not found: noteFreq=' + noteFreq);
+        console.warn('noteSensed not found: noteFreq=' + noteFreq);
       }
     }
 
@@ -510,6 +515,8 @@ function loopPadStop(loopFreq) {
     if (loopsCtr > 0) {
       loopPadStart();
     } else if (rcs.listening === NONE) {
+      // this lets the roll play by itself at the end of each tone
+      // without needing to listening being on
       releaseNoteAtTarget();
     }
   }, rcs.loopPauseTime);
@@ -668,6 +675,7 @@ function startKeyBoardListening() {
   document.addEventListener('keyup', evt => {
     if (evt.key) {
       if (evt.key === ' ') {
+        stopPadAll();
         loopPadStart();
       } else if (evt.key === 'n') {
         releaseNoteAtTarget();

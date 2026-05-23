@@ -491,10 +491,11 @@ function findLeftMostNoteToPlay() {
 
 function releaseNoteAtTarget() {
   startTimerOrPauseTimerIsRunning = false;
-  heardCnt = 0;
+  sensedCnt = 0;
   const konvaNote = findFirstUnplayedKonvaNote();
   if (konvaNote) {
-    stopPad(konvaNote.getAttr(ATTR_NOTE).f);
+    //stopPad(konvaNote.getAttr(ATTR_NOTE).f);
+    stopPadAll();
     konvaNote.setAttr(ATTR_NOTE_PLAYED, true);
     // always make note visible in case user toggles 'hide' back and forth
     konvaNote.setAttr('visible', true);

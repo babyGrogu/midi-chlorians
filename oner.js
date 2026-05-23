@@ -14,7 +14,6 @@ const CMD_SET_KEY = 'KEY';
 const CMD_SET_CHORK = 'CHORK';
 const CMD_SET_VELOCITY = 'VELOCITY';
 const CMD_SET_TONE = 'TONE';
-const CMD_SET_RELEASE_WHEN_HEARD = 'RELEASE';
 const CMD_SET_TONE3 = 'TONE3';
 const CMD_SET_TONE5 = 'TONE5';
 const CMD_SET_TONE7 = 'TONE7';
@@ -24,11 +23,11 @@ const CMD_SET_LOOP_PLAY_TIME = 'LOOP_PLAY_TIME';
 const CMD_SET_LOOP_PAUSE_TIME = 'LOOP_PAUSE_TIME';
 const CMD_SET_RANGE_LOW = 'RANGE_LOW';
 const CMD_SET_RANGE_HIGH = 'RANGE_HIGH';
-const CMD_SET_PLAY_CNT_REQ = 'PLAY_CNT_REQ';
+const CMD_SET_RELEASE = 'RELEASE';
+const CMD_SET_SENSED_THRESHOLD = 'PLAY_CNT_REQ';
 const CMD_SET_BEEP = 'BEEP';
 const CMD_SET_FUNC = 'FUNC';
 const CMD_SET_SKIP = 'SKIP';
-
 let rcs = {}; // reducer controlled state
 
 
@@ -126,10 +125,6 @@ function controlsReducer(state, action) {
       action.target.blur();
       return state;
     case (CMD_RESET):
-    //TODO:
-    // - save old key value
-    // - set key to C Major and clear key signature
-    // do the reverse when unsetting
       newState = {...defaultState};
       setUpKey(newState);
       renderKeySignature(initialState.key)
@@ -186,9 +181,6 @@ function controlsReducer(state, action) {
     case (CMD_SET_TONE):
       action.target.blur();
       return {...state, tone: action.tone};
-    case (CMD_SET_RELEASE_WHEN_HEARD):
-      action.target.blur();
-      return {...state, releaseWhenHeard: action.releaseWhenHeard };
     case (CMD_SET_CHORD_OR_ARPG):
       action.target.blur();
       return {...state, chordOrArpg: action.chordOrArpg };
@@ -207,8 +199,11 @@ function controlsReducer(state, action) {
       return {...state, loopPlayTime: action.loopPlayTime};
     case (CMD_SET_LOOP_PAUSE_TIME):
       return {...state, loopPauseTime: action.loopPauseTime};
-    case (CMD_SET_PLAY_CNT_REQ):
-      return {...state, heardCntReq: action.heardCntReq };
+    case (CMD_SET_RELEASE):
+      action.target.blur();
+      return {...state, release: action.release };
+    case (CMD_SET_SENSED_THRESHOLD):
+      return {...state, sensedThreshold: action.sensedThreshold };
     case (CMD_SET_BEEP):
       action.target.blur();
       return {...state, beep: action.beep };
@@ -363,16 +358,29 @@ const Controls = (props) => {
       </div>
 
       <div>
-        <input id="heardCntReq" type="range" value={rcs.heardCntReq} disabled={rcs.listening === NONE} min="1" max="100" onChange={e =>
-          dispatch({
-            command: CMD_SET_PLAY_CNT_REQ,
-            heardCntReq: parseInt(e.currentTarget.value,10),
-          })
-        }/>
-        <label htmlFor="heardCntReq">{rcs.heardCntReq} Heard/sensed count required for note to be sensed</label>
+        <span>
+          <input type="checkbox" id="release" checked={rcs.release} disabled={rcs.listening === NONE} onChange={e =>
+            dispatch({
+              command: CMD_SET_RELEASE,
+              release: e.currentTarget.checked,
+              target: e.currentTarget,
+            })
+          }/>
+          <label htmlFor="release">Release note when <b>note sensed</b> </label>
+        </span>
+        <span className="horizSpacer"></span>
+        <span>
+          <input id="sensedThreshold" type="range" value={rcs.sensedThreshold} disabled={rcs.listening === NONE || rcs.release === false} min="1" max="100" onChange={e =>
+            dispatch({
+              command: CMD_SET_SENSED_THRESHOLD,
+              sensedThreshold: parseInt(e.currentTarget.value,10),
+            })
+          }/>
+          <label htmlFor="sensedThreshold"> {rcs.sensedThreshold} <b>Note sensed</b> threshold</label>
+        </span>
       </div>
       <div>
-        <input type="checkbox" id="octavesEqual" checked={rcs.octEq} disabled={rcs.listening === NONE}  onChange={e =>
+        <input type="checkbox" id="octavesEqual" checked={rcs.octEq} disabled={rcs.listening === NONE} onChange={e =>
           dispatch({
             command: CMD_SET_OCTEQ,
             octEq: e.currentTarget.checked,
@@ -500,18 +508,18 @@ const Controls = (props) => {
             loopPlayTime: parseInt(e.currentTarget.value,10),
           })
         } step="10"/>
-        <label htmlFor="loopPlayTime">{rcs.loopPlayTime} loop play time</label>
+        <label htmlFor="loopPlayTime"> {rcs.loopPlayTime} loop play time</label>
 
         <span className="horizSpacer"></span>
 
-        <input id="loopPauseTime" type="range" value={rcs.loopPauseTime} min="0" max="2000"
+        <input id="loopPauseTime" type="range" value={rcs.loopPauseTime} min="0" max="8000"
         onChange={e =>
           dispatch({
             command: CMD_SET_LOOP_PAUSE_TIME,
             loopPauseTime: parseInt(e.currentTarget.value,10),
           })
         } step="10"/>
-        <label htmlFor="loopPauseTime">{rcs.loopPauseTime} pause between loops</label>
+        <label htmlFor="loopPauseTime"> {rcs.loopPauseTime} pause between loops</label>
       </div>
 
       <div className="vertSpacer"></div>
@@ -532,7 +540,7 @@ const Controls = (props) => {
             target: e.currentTarget,
           })
         }/>
-        <label htmlFor="hide"> Hide notes on staff until note is released </label>
+        <label htmlFor="hide"> Hide notes <b>AND SENSED</b> on staff until note is released </label>
       </div>
 
       <div className="vertSpacer"></div>
