@@ -73,9 +73,11 @@ const FUNC_RANDO = 'RANDO';
 const FUNC_ASC = 'ASC';
 const FUNC_DESC = 'DESC';
 
+const RUN_MODE_CNR = 'C&R';
+
 // keep defaultState to one level of nested objects so the localStorage of ui settings will work
 const defaultState = {
-  listening: NONE,
+  input: NONE,
   octEq: false,
   octHigher: false,
   amp: false,
@@ -93,11 +95,13 @@ const defaultState = {
   loops: 1,
   loopPlayTime: 800,
   loopPauseTime: 0,
-  release: true,
-  sensedThreshold: 23,
+  sensedDisplay: false,
+  sensedTriggerThreshold: 23,
+  sensedTrigger: false,
   beep: false,
   func: FUNC_RANDO,
   skip: {},
+  runMode: false,
 };
 let initialState;
 let notesActualInKeyForRange = [];
@@ -106,12 +110,11 @@ let notesActualInKeyForRange = [];
 let keySteps = MAJOR_SCALE_HALF_STEPS;
 let chooseNoteTimer = -1;
 //let animationFramesCtr = 0;
-let sensedCnt = 0;
+let sensedThresholdCnt = 0;
 let pitchElem, noteElem, sensedEle, detuneElem, detuneAmount, lastPlayed;
-let loopNote, loopsCtr, padTimerStart, padTimerStop, timeoutThird, timeoutFifth, timeoutSeventh;
-let padFreqs = {};
+let loopNote, loopsCtr, timeoutRoot, timeoutPadPauseUntilLoopRestart, timeoutThird, timeoutFifth, timeoutSeventh;
+let padOscillatorsAtFreq = {};
 let inited =  false; // inited doesn't have a UI setting so keeping out of rcs
-let startTimerOrPauseTimerIsRunning = false;
 
 // arrays of notes
 let notesActual = [], notesMinimum = [], noteNamesInKey = [], noteNamesChromaticForKey = [];
@@ -145,14 +148,15 @@ window.onload = function () {
 }
 
 
-function startAudioProcessing() {
-  // no listening mode
-  if (rcs.listening === NONE) {
-    return;
+function startAudioListening() {
+  // no input mode
+  if (rcs.input === NONE) {
+    alert('no input selected');
+    return false;
   }
 
   function gotStream(stream) {
-    console.log('gs ');
+    console.info('got stream');
     // Create an AudioNode from the stream.
     mediaStreamSource = audioContext.createMediaStreamSource(stream);
     // Connect it to the destination.
@@ -162,53 +166,59 @@ function startAudioProcessing() {
     if (rcs.amp) {
       analyser.connect(audioContext.destination);
     }
+    // TODO: starting updatePitch might be better to do when
+    // the first note reaches the target
     updatePitch();
-    beep(); // so i know it worked
+    //beep(); // so i know it worked
   }
 
   function handleError(err) {
     // always check for errors at the end.
     console.error(`${err.name}: ${err.message}`);
     alert('Stream generation failed.');
+    return false;
   }
 
   // get an audio context
-  audioContext = new AudioContext();
-  // would this make it faster?
-  //audioContext = new AudioContext({sampleRate:8*1024});
+  if (audioContext === null) {
+    audioContext = new AudioContext();
+    // would this make it faster?
+    //audioContext = new AudioContext({sampleRate:8*1024});
 
-  // new version of getUserMedia from
-  // https://github.com/cwilso/PitchDetect/commit/dcae53dc491e42806870abf5588f6f46df56a9a5
-  if (rcs.listening === 'mic') {
-    // Attempt to get audio input
-    navigator.mediaDevices.getUserMedia({
-      "audio": {
-        "mandatory": {
-          "googEchoCancellation": "false",
-          "googAutoGainControl": "false",
-          "googNoiseSuppression": "false",
-          "googHighpassFilter": "false"
-        },
-        "optional": []
-      }
-    }).then((stream) => {
-      gotStream(stream);
-    }).catch(handleError);
-  } else if (rcs.listening === 'cable') {
-    navigator.mediaDevices.enumerateDevices().then(devices => {
-      devices.forEach(device => {
-        if (device.label.indexOf('USB ') > -1 && device.kind.indexOf('audioinput') > -1) {
-          navigator.mediaDevices.getUserMedia({
-            "audio": {
-              "deviceId": device.deviceId
-            }
-          }).then(stream => {
-            gotStream(stream);
-          }).catch(handleError);
+    // new version of getUserMedia from
+    // https://github.com/cwilso/PitchDetect/commit/dcae53dc491e42806870abf5588f6f46df56a9a5
+    if (rcs.input === 'mic') {
+      // Attempt to get audio input
+      navigator.mediaDevices.getUserMedia({
+        "audio": {
+          "mandatory": {
+            "googEchoCancellation": "false",
+            "googAutoGainControl": "false",
+            "googNoiseSuppression": "false",
+            "googHighpassFilter": "false"
+          },
+          "optional": []
         }
+      }).then((stream) => {
+        gotStream(stream);
+      }).catch(handleError);
+    } else if (rcs.input === 'cable') {
+      navigator.mediaDevices.enumerateDevices().then(devices => {
+        devices.forEach(device => {
+          if (device.label.indexOf('USB ') > -1 && device.kind.indexOf('audioinput') > -1) {
+            navigator.mediaDevices.getUserMedia({
+              "audio": {
+                "deviceId": device.deviceId
+              }
+            }).then(stream => {
+              gotStream(stream);
+            }).catch(handleError);
+          }
+        });
       });
-    });
+    }
   }
+  return true;
 }
 
 function noteFromPitch( frequency ) {
@@ -293,6 +303,7 @@ function updatePitch() {
 
 	analyser.getFloatTimeDomainData( buf );
 	var noteFreq = autoCorrelate( buf, audioContext.sampleRate );
+  const thresh = (rcs.sensedTrigger) ? ' Threshold: ' + rcs.sensedTriggerThreshold : '';
 
   //animationFramesCtr++;
  	if (noteFreq == -1) {
@@ -301,36 +312,49 @@ function updatePitch() {
 		  detuneAmount.innerText = "--";
  	} else {
 	 	pitchElem.innerText = Math.round( noteFreq ) ;
-	 	let note = noteFromPitch( noteFreq );
-		noteElem.innerHTML = NOTES[note%12];
 
     if (notesMinimum[0].f <= noteFreq && noteFreq < notesActual[notesActual.length-1].f) {
       const noteSensed = binarySearch(noteFreq);
       if (noteSensed) {
-        noteElem.innerHTML = noteSensed.n + ' ' + noteSensed.l + ' ' + noteSensed.f;
+        if (rcs.sensedDisplay) {
+	 	      //const note = noteFromPitch( noteFreq );
+      		//noteElem.innerHTML = NOTES[note%12];
+          //noteElem.innerHTML = noteSensed.n + ' ' + noteSensed.l + ' ' + noteSensed.f;
+          // TODO: maybe show the note label correctly (see tooltips) rather than =/NOTE note
+          // TODO: maybe offer controls showing freqency
+          noteElem.innerHTML = noteSensed.n + ' ' + noteSensed.l;
+        }
 
         const firstUnplayedNote = findFirstUnplayedNote();
-        if (firstUnplayedNote && noteSensed.n === firstUnplayedNote.n &&
-            (rcs.octEq ? true : noteSensed.l === firstUnplayedNote.l)) {
-          sensedCnt++;
-          if (rcs.release && sensedCnt >= rcs.sensedThreshold) {
-            //lastPlayed.innerHTML = 'Previous note: ' + noteSensed.n;
-            //if (tone && loopsCtr < 1) {
+
+        if (rcs.runMode === RUN_MODE_CNR && rcs.sensedDisplay && rcs.sensedTrigger) {
+          if (firstUnplayedNote && noteSensed.n === firstUnplayedNote.n &&
+              (rcs.octEq ? true : noteSensed.l === firstUnplayedNote.l)) {
+            if (rcs.sensedTrigger) sensedThresholdCnt++;
+            if (rcs.sensedTrigger && sensedThresholdCnt >= rcs.sensedTriggerThreshold) {
+              sensedThresholdCnt = 0;
               releaseNoteAtTarget();
-            //}
+              rcs.sensedDisplay = false;
+              rcs.sensedTrigger = false;
+              // seems like this fRUT would be needed here but it is not???
+              //forceReactUpdateTrick();
+            }
           }
         }
         if (rcs.hide) {
           sensedEle.innerHTML = '';
+        }
+        else if (rcs.sensedDisplay) {
+          sensedEle.innerHTML = 'Sensed: ' + sensedThresholdCnt + thresh;
         } else {
-          const ss = (rcs.release) ? ' Threshold: ' + rcs.sensedThreshold : '';
-          sensedEle.innerHTML = 'Sensed: ' + sensedCnt + ss;
+          sensedEle.innerHTML = 'Respond when ready';
         }
       } else {
         console.warn('noteSensed not found: noteFreq=' + noteFreq);
       }
     }
 
+	const note = noteFromPitch( noteFreq );
   const detune = centsOffFromPitch( noteFreq, note );
   if (detune == 0) {
     detuneElem.className = "";
@@ -432,7 +456,7 @@ function createBassClefKeySignatures() {
 }
 
 function pad(freq) {
-  stopPad(freq);
+  stopOscsFromRoot(freq);
 
   let t = 0;
   var lnf = Math.log(freq);
@@ -481,16 +505,24 @@ function pad(freq) {
   square.start(t);
 
   //console.log('pad ' + freq);
-  padFreqs[freq] = [saw1, saw2, square];
+  padOscillatorsAtFreq[freq] = [saw1, saw2, square];
 }
 
-function loopsStart(note) {
+function startLooping(note) {
   loopNote = note;
-  loopsCtr = rcs.loops;
-  forceReactUpdateTrick();
-  loopPadStart();
+  loopsCtr = rcs.loops; forceReactUpdateTrick();
+  oneLoopPadStart();
 }
-function loopPadStart() {
+
+function stopLoopingTimers() {
+  clearTimeout(timeoutRoot);
+  clearTimeout(timeoutPadPauseUntilLoopRestart);
+  clearTimeout(timeoutThird);
+  clearTimeout(timeoutFifth);
+  clearTimeout(timeoutSeventh);
+}
+
+function findLoopNoteFreq() {
   if (!loopNote) return;
   let loopNoteIndex;
   if (rcs.octHigher) {
@@ -499,28 +531,37 @@ function loopPadStart() {
     loopNoteIndex = loopNote.i;
   }
   const loopFreq = notesActual[loopNoteIndex].f;
-  stopPad(loopFreq); // just in case it was running already
-  startTimerOrPauseTimerIsRunning = true;
+  return loopFreq;
+}
+function stopCurrentNotePad() {
+  const loopFreq = findLoopNoteFreq();
+  stopOscsFromRoot(loopFreq); // just in case it was running already
+}
+function oneLoopPadStart() {
+  const loopFreq = findLoopNoteFreq();
+  stopOscsFromRoot(loopFreq); // just in case it was running already
   startPad(loopFreq);
-  padTimerStart = setTimeout(() => {
-    loopPadStop(loopFreq);
+  timeoutRoot = setTimeout(() => {
+    oneLoopPadStop(loopFreq);
   }, rcs.loopPlayTime);
 }
-function loopPadStop(loopFreq) {
-  stopPad(loopFreq);
-  loopsCtr--;
-  forceReactUpdateTrick();
-  padTimerStop = setTimeout(() => {
-    startTimerOrPauseTimerIsRunning = false;
+function oneLoopPadStop(loopFreq) {
+  stopOscsFromRoot(loopFreq);
+  loopsCtr--; forceReactUpdateTrick();
+  timeoutPadPauseUntilLoopRestart = setTimeout(() => {
     if (loopsCtr > 0) {
-      loopPadStart();
-    } else if (rcs.listening === NONE) {
+      oneLoopPadStart();
+    }
+    /*
+    else if (rcs.input === NONE) {
       // this lets the roll play by itself at the end of each tone
-      // without needing to listening being on
+      // without needing to input being on
       releaseNoteAtTarget();
     }
+    */
   }, rcs.loopPauseTime);
 }
+
 
 function startPad(freq) {
   pad(freq);
@@ -554,42 +595,37 @@ function startPad(freq) {
   }
 }
 
-function stopPad(freq) {
-  function stopFreq(f) {
-    if (padFreqs[f]) {
-      const oscs = padFreqs[f];
+// stops all all 3 oscillators at each frequency (root, 3rd, 5th & 7th)
+function stopOscsFromRoot(freq) {
+  function stopOscillatorsAtFreq(f) {
+    if (padOscillatorsAtFreq[f]) {
+      const oscs = padOscillatorsAtFreq[f];
       oscs[2].stop();
       oscs[1].stop();
       oscs[0].stop();
       delete oscs[2];
       delete oscs[1];
       delete oscs[0];
-      delete padFreqs[f];
+      delete padOscillatorsAtFreq[f];
     }
   }
-  stopFreq(freq);
+  stopOscillatorsAtFreq(freq);
   // even if third and fifth are not on now those switches might
   // have been on when startPad was called, and user might have
   // turned off the switches while the sound was playing
   const thirdFreq = calcIntervalFreq(freq, 2);
-  stopFreq(thirdFreq);
+  stopOscillatorsAtFreq(thirdFreq);
   const fifthFreq = calcIntervalFreq(freq, 4);
-  stopFreq(fifthFreq);
+  stopOscillatorsAtFreq(fifthFreq);
   const seventhFreq = calcIntervalFreq(freq, 6);
-  stopFreq(seventhFreq);
+  stopOscillatorsAtFreq(seventhFreq);
 }
 
 function stopPadAll() {
-  for (const [freq, value] of Object.entries(padFreqs)) {
+  for (const [freq, value] of Object.entries(padOscillatorsAtFreq)) {
     //console.log(`${freq} ${value}`);
-    stopPad(freq);
+    stopOscsFromRoot(freq);
   }
-
-  clearTimeout(padTimerStart);
-  clearTimeout(padTimerStop);
-  clearTimeout(timeoutThird);
-  clearTimeout(timeoutFifth);
-  clearTimeout(timeoutSeventh);
 }
 
 function beep() {
@@ -621,26 +657,48 @@ function calcIntervalFreq(freq, distanceOfNotesInKey) {
     return notesActual[distancedNoteIndex].f;
 }
 
+// TODO: ask ai how to use keyboard listeners with react and dispatch
+//       remove this init if keyboard listeners work with react
 function initIt() {
   inited = true;
-  audioContext = new AudioContext();
-  startAudioProcessing();
   startKeyBoardListening();
 }
 
-function startIt() {
+function startAnimation() {
   if (!inited) {
     initIt();
   }
-  if (! animateRoll.isRunning()) {
-    animateRoll.start();
+  const status = startAudioListening();
+  if (status) {
+    if (! animateRoll.isRunning()) {
+      animateRoll.start();
+    }
   }
 }
 
+function restartAnimation() {
+  if (! animateRoll.isRunning()) {
+    animateRoll.start();
+  }
+  //oneLoopPadStart();
+}
+
 function stopIt() {
-  startTimerOrPauseTimerIsRunning = false;
   animateRoll.stop();
+  loopsCtr = 0; forceReactUpdateTrick();
   stopPadAll();
+  stopLoopingTimers();
+  sensedThresholdCnt = 0;
+  rcs.sensedDisplay = false;
+  rcs.sensedTrigger = false
+  rcs.runMode = false;
+  // seems like this fRUT would be needed here but it is not???
+  // even if above frut is not there
+  //forceReactUpdateTrick();
+}
+
+function respond() {
+  stopCurrentNotePad();
 }
 
 function setUpKey(state) {
@@ -671,16 +729,20 @@ function setNoteFunction(state) {
   }
 }
 
+// TODO: ask ai how to use keyboard listeners with react and dispatch
 function startKeyBoardListening() {
   document.addEventListener('keyup', evt => {
     if (evt.key) {
-      if (evt.key === ' ') {
+      if (evt.key === 'p') {
         stopPadAll();
-        loopPadStart();
+        stopLoopingTimers();
+        oneLoopPadStart();
       } else if (evt.key === 'n') {
         releaseNoteAtTarget();
       } else if (evt.key === 's') {
         showNoteAtTarget();
+      } else if (evt.key === ' ') {
+        respond();
       } else {
         const note = findFirstUnplayedNote();
         if (note && note.n.toLowerCase().indexOf(evt.key) > -1) {
@@ -691,4 +753,4 @@ function startKeyBoardListening() {
     }
   });
 }
-
+ 

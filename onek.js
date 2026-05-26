@@ -490,12 +490,8 @@ function findLeftMostNoteToPlay() {
 */
 
 function releaseNoteAtTarget() {
-  startTimerOrPauseTimerIsRunning = false;
-  sensedCnt = 0;
   const konvaNote = findFirstUnplayedKonvaNote();
   if (konvaNote) {
-    //stopPad(konvaNote.getAttr(ATTR_NOTE).f);
-    stopPadAll();
     konvaNote.setAttr(ATTR_NOTE_PLAYED, true);
     // always make note visible in case user toggles 'hide' back and forth
     konvaNote.setAttr('visible', true);
@@ -503,7 +499,8 @@ function releaseNoteAtTarget() {
   if (! animateRoll.isRunning()) {
     animateRoll.start();
   }
-  stopPadAll();
+  stopCurrentNotePad();
+  stopLoopingTimers();
   if (rcs.tone && rcs.beep) {
     beep();
   }
@@ -611,7 +608,7 @@ function clearNotes() {
   lastNoteGenerated = {n:-1};
   const c = roll.getChildren();
   if (c && c.length) {
-    let restart = animateRoll.isRunning() || startTimerOrPauseTimerIsRunning;
+    let restart = animateRoll.isRunning();
     stopIt();
     for (let i=c.length-1; i>-1; i--) {
       c[i].destroy();
@@ -746,7 +743,7 @@ const animateRoll = new Konva.Animation(function (frame) {
     if (konvaNoteX <= targetLineX) {
       animateRoll.stop();
       if (rcs.tone) {
-        loopsStart(konvaNote.getAttr(ATTR_NOTE));
+        startLooping(konvaNote.getAttr(ATTR_NOTE));
       }
     }
   }

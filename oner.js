@@ -3,7 +3,8 @@
 const { useReducer, useEffect, useCallback, StrictMode } = React
 const { createRoot } = ReactDOM;
 
-const CMD_SET_INITED = 'INITED';
+const CMD_SET_CNR = 'CMD_SET_CNR';
+const CMD_SET_CNR_RESPOND = 'CMD_SET_CNR_RESPOND';
 const CMD_RESET = 'RESET';
 const CMD_SET_INPUT = 'LISTENING';
 const CMD_SET_OCTEQ = 'OCT_EQ';
@@ -23,8 +24,9 @@ const CMD_SET_LOOP_PLAY_TIME = 'LOOP_PLAY_TIME';
 const CMD_SET_LOOP_PAUSE_TIME = 'LOOP_PAUSE_TIME';
 const CMD_SET_RANGE_LOW = 'RANGE_LOW';
 const CMD_SET_RANGE_HIGH = 'RANGE_HIGH';
-const CMD_SET_RELEASE = 'RELEASE';
-const CMD_SET_SENSED_THRESHOLD = 'PLAY_CNT_REQ';
+const CMD_SET_SENSED = 'SENSED';
+const CMD_SET_SENSED_TRIGGER = 'SENSED_TRIGGER';
+const CMD_SET_SENSED_TRIGGER_THRESHOLD = 'SENSED_TRIGGER_THRESHOLD';
 const CMD_SET_BEEP = 'BEEP';
 const CMD_SET_FUNC = 'FUNC';
 const CMD_SET_SKIP = 'SKIP';
@@ -120,10 +122,21 @@ function renderKeysForKeySelection(type) {
 function controlsReducer(state, action) {
   let newState = {};
   switch(action.command) {
-    case (CMD_SET_INITED):
-      startIt();
+    case (CMD_SET_CNR):
+      startAnimation();
       action.target.blur();
-      return state;
+      return {...state,
+        runMode: RUN_MODE_CNR,
+        sensedDisplay: false,
+        sensedTrigger: false
+      };
+    case (CMD_SET_CNR_RESPOND):
+      respond();
+      action.target.blur();
+      return {...state, 
+        sensedDisplay: true,
+        sensedTrigger: true
+      };
     case (CMD_RESET):
       newState = {...defaultState};
       setUpKey(newState);
@@ -136,7 +149,7 @@ function controlsReducer(state, action) {
       setUpKey(newState);
       renderKeySignature(newState.key)
       clearNotes();
-      if (animateRoll.isRunning()) startIt();
+      if (animateRoll.isRunning()) restartAnimation();
       action.target.blur();
       return newState;
     case (CMD_SET_KEY):
@@ -144,7 +157,7 @@ function controlsReducer(state, action) {
       setUpKey(newState);
       renderKeySignature(newState.key)
       clearNotes();
-      if (animateRoll.isRunning()) startIt();
+      if (animateRoll.isRunning()) restartAnimation();
       action.target.blur(); // remove focus from widget so typing does not change selection
       return newState;
     case (CMD_SET_RANGE_LOW):
@@ -163,7 +176,7 @@ function controlsReducer(state, action) {
       action.target.blur();
       return newState;
     case (CMD_SET_INPUT):
-      return {...state, listening: action.listening};
+      return {...state, input: action.input};
     case (CMD_SET_OCTEQ):
       action.target.blur(); // remove focus from widget so typing does not change selection
       return {...state, octEq: action.octEq};
@@ -199,11 +212,14 @@ function controlsReducer(state, action) {
       return {...state, loopPlayTime: action.loopPlayTime};
     case (CMD_SET_LOOP_PAUSE_TIME):
       return {...state, loopPauseTime: action.loopPauseTime};
-    case (CMD_SET_RELEASE):
+    case (CMD_SET_SENSED):
       action.target.blur();
-      return {...state, release: action.release };
-    case (CMD_SET_SENSED_THRESHOLD):
-      return {...state, sensedThreshold: action.sensedThreshold };
+      return {...state, sensedDisplay: action.sensedDisplay };
+    case (CMD_SET_SENSED_TRIGGER):
+      action.target.blur();
+      return {...state, sensedTrigger: action.sensedTrigger };
+    case (CMD_SET_SENSED_TRIGGER_THRESHOLD):
+      return {...state, sensedTriggerThreshold: action.sensedTriggerThreshold };
     case (CMD_SET_BEEP):
       action.target.blur();
       return {...state, beep: action.beep };
@@ -344,43 +360,54 @@ const Controls = (props) => {
       <div className="vertSpacer"></div>
 
       <div>
-        <select id="listening" value={rcs.listening} onChange={e =>
+        <select id="input" value={rcs.input} onChange={e =>
             dispatch({
               command: CMD_SET_INPUT,
-              listening: e.currentTarget.value
+              input: e.currentTarget.value
             })
         }>
-          <option value={NONE}>No Listening</option>
+          <option value={NONE}>No input</option>
           <option value="mic">Microphone</option>
           <option value="cable">Instrument Cable (to USB)</option>
         </select>
-        <label> listening mode </label>
+        <label> input </label>
       </div>
 
       <div>
         <span>
-          <input type="checkbox" id="release" checked={rcs.release} disabled={rcs.listening === NONE} onChange={e =>
+          <input type="checkbox" id="sensedDisplay" checked={rcs.sensedDisplay} disabled={rcs.input === NONE} onChange={e =>
             dispatch({
-              command: CMD_SET_RELEASE,
-              release: e.currentTarget.checked,
+              command: CMD_SET_SENSED,
+              sensedDisplay: e.currentTarget.checked,
               target: e.currentTarget,
             })
           }/>
-          <label htmlFor="release">Release note when <b>note sensed</b> </label>
+          <label htmlFor="sensedDisplay">display sensedThreshold Count </label>
         </span>
-        <span className="horizSpacer"></span>
         <span>
-          <input id="sensedThreshold" type="range" value={rcs.sensedThreshold} disabled={rcs.listening === NONE || rcs.release === false} min="1" max="100" onChange={e =>
+          <input type="checkbox" id="sensedTrigger" checked={rcs.sensedTrigger} disabled={rcs.input === NONE} onChange={e =>
             dispatch({
-              command: CMD_SET_SENSED_THRESHOLD,
-              sensedThreshold: parseInt(e.currentTarget.value,10),
+              command: CMD_SET_SENSED_TRIGGER,
+              sensedTrigger: e.currentTarget.checked,
+              target: e.currentTarget,
             })
           }/>
-          <label htmlFor="sensedThreshold"> {rcs.sensedThreshold} <b>Note sensed</b> threshold</label>
+          <label htmlFor="sensedTrigger">sensed trigger (release note at sensed threshold)</label>
+        </span>
+        <span className="horizSpacer"></span>
+        <span className="horizSpacer"></span>
+        <span>
+          <input id="sensedTriggerThreshold" type="range" value={rcs.sensedTriggerThreshold} disabled={rcs.input === NONE || rcs.sensedTrigger === false} min="1" max="100" onChange={e =>
+            dispatch({
+              command: CMD_SET_SENSED_TRIGGER_THRESHOLD,
+              sensedTriggerThreshold: parseInt(e.currentTarget.value,10),
+            })
+          }/>
+          <label htmlFor="sensedTriggerThreshold"> {rcs.sensedTriggerThreshold} <b>Note sensed</b> threshold</label>
         </span>
       </div>
       <div>
-        <input type="checkbox" id="octavesEqual" checked={rcs.octEq} disabled={rcs.listening === NONE} onChange={e =>
+        <input type="checkbox" id="octavesEqual" checked={rcs.octEq} disabled={rcs.input === NONE} onChange={e =>
           dispatch({
             command: CMD_SET_OCTEQ,
             octEq: e.currentTarget.checked,
@@ -391,7 +418,7 @@ const Controls = (props) => {
       </div>
       <div>
         <input type="checkbox" id="amp" checked={rcs.amp} checked={rcs.amp}
-          disabled={rcs.listening === NONE} onChange={e => dispatch({
+          disabled={rcs.input === NONE} onChange={e => dispatch({
             command: CMD_SET_AMP,
             amp: e.currentTarget.checked,
             target: e.currentTarget,
@@ -547,9 +574,14 @@ const Controls = (props) => {
 
       <div>
         <button onClick={e => dispatch({
-          command: CMD_SET_INITED,
+          command: CMD_SET_CNR,
           target: e.currentTarget
-        })}>Start</button>
+        })}>Call</button>
+        <span className="horizSpacer"></span>
+        <button onClick={e => dispatch({
+          command: CMD_SET_CNR_RESPOND,
+          target: e.currentTarget
+        })}>Respond</button>
         <span className="horizSpacer"></span>
         <button onClick={e => { e.currentTarget.blur(); stopIt()}}>Stop</button>
         <span className="horizSpacer"></span>
