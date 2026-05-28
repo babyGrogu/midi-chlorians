@@ -340,6 +340,9 @@ function binarySearch(freq) {
       
 function updatePitch() {
 
+  // TODO: ?? make a ui widget
+  const trigger = 2;// B0 27 hz nm#2 i can't beleive this works!
+
 	analyser.getFloatTimeDomainData( buf );
 	var noteFreq = autoCorrelate( buf, audioContext.sampleRate );
   const thresh = (rcs.sensedTrigger) ? ' Threshold: ' + rcs.sensedTriggerThreshold : '';
@@ -352,6 +355,14 @@ function updatePitch() {
  	} else {
 	 	pitchElem.innerText = Math.round( noteFreq ) ;
 
+    // this is our test range for respond
+    if (notesMinimum[trigger].f <= noteFreq && noteFreq < notesMinimum[trigger+1].f) {
+      console.log('g4 seen');
+      // TODO: add a beep here
+      respondFake();
+    }
+
+    // if the frequency seen is in our UI set range limits...
     if (notesMinimum[0].f <= noteFreq && noteFreq < notesActual[notesActual.length-1].f) {
       const noteSensed = binarySearch(noteFreq);
       if (noteSensed) {
@@ -736,6 +747,14 @@ function stopIt() {
   //forceReactUpdateTrick();
 }
 
+// TODO: would like to call controlsReducer and have it behave
+// like the user clicked on Respond
+function respondFake() {
+  rcs.sensedDisplay = true;
+  rcs.sensedTrigger = true
+  respond();
+}
+
 function respond() {
   stopCurrentNotePad();
   stopLoopingTimers();
@@ -775,7 +794,7 @@ function setNoteFunction(state) {
 function startKeyBoardListening() {
   document.addEventListener('keyup', evt => {
     if (evt.key) {
-      if (evt.key === 'p') {
+      if (evt.key === ' ') {
         stopPadAll();
         stopLoopingTimers();
         oneLoopPadStart();
@@ -783,8 +802,8 @@ function startKeyBoardListening() {
         releaseNoteAtTarget();
       } else if (evt.key === 's') {
         showNoteAtTarget();
-      } else if (evt.key === ' ') {
-        respond();
+      } else if (evt.key === 'r') {
+        respondFake();
       } else {
         const note = findFirstUnplayedNote();
         if (note && note.n.toLowerCase().indexOf(evt.key) > -1) {
