@@ -123,7 +123,9 @@ let notesActual = [], notesMinimum = [], noteNamesInKey = [], noteNamesChromatic
 let analyser = null;
 let audioContext = null;
 let rafID = null;
-let buf = new Float32Array( 2048 );
+let bigger = 2;  // 4 caused the note to not align with the target, although even 2
+// did this so maybe there is some other animation issue
+let buf = new Float32Array( 2048 * bigger );
 
 
 // onload handler has to be at top
@@ -147,22 +149,56 @@ window.onload = function () {
   initKonva(initialState.key);
 }
 
+function inspectAudio(stream) {
+  //async function inspectAudio() {}
+  //const stream = await navigator.mediaDevices.getUserMedia({
+  //  audio: true
+  //});
 
-function startAudioListening() {
-  // no input mode
+  const track = stream.getAudioTracks()[0];
+
+  console.log('TRACK:', track);
+
+  console.log('Requested Constraints:');
+  console.log(track.getConstraints());
+
+  console.log('Actual Settings:');
+  console.log(track.getSettings());
+
+  // Not supported in all browsers
+  if (track.getCapabilities) {
+    console.log('Capabilities:');
+    console.log(track.getCapabilities());
+  }
+}
+
+async function startAudioListening() {
+
+  // no input
   if (rcs.input === NONE) {
     alert('no input selected');
     return false;
   }
 
-  function gotStream(stream) {
+  async function gotStream(stream) {
+
+
+    // Resume context if browser suspended it
+    if (audioContext.state === 'suspended') {
+      await audioContext.resume();
+    }
+
+    //inspectAudio(stream);
+
     console.info('got stream');
-    // Create an AudioNode from the stream.
+
     mediaStreamSource = audioContext.createMediaStreamSource(stream);
-    // Connect it to the destination.
+
     analyser = audioContext.createAnalyser();
-    analyser.fftSize = 2048;
-    mediaStreamSource.connect( analyser );
+    analyser.fftSize = 2048 * bigger;
+
+    // Connect analyser to the destination.
+    mediaStreamSource.connect(analyser);
     if (rcs.amp) {
       analyser.connect(audioContext.destination);
     }
@@ -172,51 +208,54 @@ function startAudioListening() {
     //beep(); // so i know it worked
   }
 
-  function handleError(err) {
-    // always check for errors at the end.
+  try {
+    // Create AudioContext only once
+    if (!audioContext) {
+      audioContext = new AudioContext();
+    }
+
+    // microphone input
+    if (rcs.input === 'mic') {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          // with echo false it listens to itself and if sensing
+          // will trigger itself
+          echoCancellation: true,
+          autoGainControl: false,
+          noiseSuppression: false
+        }
+      });
+
+      await gotStream(stream);
+    }
+
+    // specific usb audio device
+    else if (rcs.input === 'cable') {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+
+      const usbDevice = devices.find(device =>
+        device.kind === 'audioinput' &&
+        device.label.includes('USB')
+      );
+
+      if (!usbDevice) {
+        throw new Error('USB audio device not found.');
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          deviceId: {
+            exact: usbDevice.deviceId
+          }
+        }
+      });
+
+      await gotStream(stream);
+    }
+  } catch (err) {
     console.error(`${err.name}: ${err.message}`);
     alert('Stream generation failed.');
     return false;
-  }
-
-  // get an audio context
-  if (audioContext === null) {
-    audioContext = new AudioContext();
-    // would this make it faster?
-    //audioContext = new AudioContext({sampleRate:8*1024});
-
-    // new version of getUserMedia from
-    // https://github.com/cwilso/PitchDetect/commit/dcae53dc491e42806870abf5588f6f46df56a9a5
-    if (rcs.input === 'mic') {
-      // Attempt to get audio input
-      navigator.mediaDevices.getUserMedia({
-        "audio": {
-          "mandatory": {
-            "googEchoCancellation": "false",
-            "googAutoGainControl": "false",
-            "googNoiseSuppression": "false",
-            "googHighpassFilter": "false"
-          },
-          "optional": []
-        }
-      }).then((stream) => {
-        gotStream(stream);
-      }).catch(handleError);
-    } else if (rcs.input === 'cable') {
-      navigator.mediaDevices.enumerateDevices().then(devices => {
-        devices.forEach(device => {
-          if (device.label.indexOf('USB ') > -1 && device.kind.indexOf('audioinput') > -1) {
-            navigator.mediaDevices.getUserMedia({
-              "audio": {
-                "deviceId": device.deviceId
-              }
-            }).then(stream => {
-              gotStream(stream);
-            }).catch(handleError);
-          }
-        });
-      });
-    }
   }
   return true;
 }
@@ -347,7 +386,7 @@ function updatePitch() {
         else if (rcs.sensedDisplay) {
           sensedEle.innerHTML = 'Sensed: ' + sensedThresholdCnt + thresh;
         } else {
-          sensedEle.innerHTML = 'Respond when ready';
+          sensedEle.innerHTML = 'Press Respond when ready';
         }
       } else {
         console.warn('noteSensed not found: noteFreq=' + noteFreq);
@@ -699,6 +738,9 @@ function stopIt() {
 
 function respond() {
   stopCurrentNotePad();
+  stopLoopingTimers();
+  loopsCtr = 0; forceReactUpdateTrick();
+  sensedEle.innerHTML = 'Play something!';
 }
 
 function setUpKey(state) {
