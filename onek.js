@@ -34,6 +34,7 @@ const ATTR_NOTE = 'NOTE';
 const ATTR_NOTE_PLAYED = 'NOTE_PLAYED';
 const ATTR_TYPE = 'TYPE';
 const ATTR_TYPE_NOTE = 'TYPE_NOTE';
+const ATTR_ACCIDENTAL = 'ACCIDENTAL';
 
 
 let quarterNote, quarterNoteFlipped, quarterNoteFlippedG, quarterNoteFlippedF,quarterNoteFlippedE, quarterNoteFlippedD, quarterNoteFlippedC, quarterNoteE, quarterNoteD, quarterNoteC, quarterNoteB, tooltip, animateNoteFunction;
@@ -396,6 +397,7 @@ function renderNote(note) {
     roll.add(h);
   }
 
+  let accidentalK = null;
   if (rcs.chromatic) {
     let idx = noteNamesInKey.findIndex(n => n === note.n);
     // if not is not in the key then need to figure out that accidental to use
@@ -403,21 +405,20 @@ function renderNote(note) {
     if (idx === -1) {
       const c2 = note.n[1];
       const label = getLabelForNote(note.n);
-      let accidental;
       if (label.length == 2) { // label is a sharp or flat and not in key
         const accType = (label[1] === '#') ? sharp : flat;
-        accidental = accType.clone({
+        accidentalK = accType.clone({
           x: noteInsertionPoint - 60 , // flat & sharp offset
           y: lineSpacing * staffLine/2 - 68 // flat & sharp offset
         });
       } else {
-        accidental = natural.clone({
+        accidentalK = natural.clone({
           x: noteInsertionPoint - 15, // natural offset
           y: lineSpacing * staffLine/2 - 16 // natural offset
         });
       }
-      if (rcs.hide) accidental.setAttr('visible', false);
-      roll.add(accidental);
+      if (rcs.hide) accidentalK.setAttr('visible', false);
+      roll.add(accidentalK);
     }
   }
 
@@ -441,6 +442,7 @@ function renderNote(note) {
   newNoteK.setAttr(ATTR_NOTE, note);
   newNoteK.setAttr(ATTR_NOTE_PLAYED, false);
   newNoteK.setAttr(ATTR_TYPE, ATTR_TYPE_NOTE);
+  newNoteK.setAttr(ATTR_ACCIDENTAL, accidentalK);
 
 
   if (rcs.hide) {
@@ -495,6 +497,9 @@ function releaseNoteAtTarget() {
     konvaNote.setAttr(ATTR_NOTE_PLAYED, true);
     // always make note visible in case user toggles 'hide' back and forth
     konvaNote.setAttr('visible', true);
+    const accK = konvaNote.getAttr(ATTR_ACCIDENTAL);
+    if (accK)
+      accK.setAttr('visible', true);
   }
   if (! animateRoll.isRunning()) {
     animateRoll.start();
@@ -510,6 +515,9 @@ function showNoteAtTarget() {
   const konvaNote = findFirstUnplayedKonvaNote();
   if (konvaNote) {
     konvaNote.setAttr('visible', true);
+    const accK = konvaNote.getAttr(ATTR_ACCIDENTAL);
+    if (accK)
+      accK.setAttr('visible', true);
   }
 }
 

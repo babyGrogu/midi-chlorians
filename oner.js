@@ -121,10 +121,11 @@ function renderKeysForKeySelection(type) {
 
 function controlsReducer(state, action) {
   let newState = {};
+  if (action.target)
+    action.target.blur(); // remove focus from widget so keyboard does not change selection
   switch(action.command) {
     case (CMD_SET_CNR):
       startAnimation();
-      action.target.blur();
       return {...state,
         runMode: RUN_MODE_CNR,
         sensedDisplay: false,
@@ -132,7 +133,6 @@ function controlsReducer(state, action) {
       };
     case (CMD_SET_CNR_RESPOND):
       respond();
-      action.target.blur();
       return {...state, 
         sensedDisplay: true,
         sensedTrigger: true
@@ -142,7 +142,6 @@ function controlsReducer(state, action) {
       setUpKey(newState);
       renderKeySignature(initialState.key)
       setNoteFunction(newState);
-      action.target.blur();
       return newState;
     case (CMD_SET_CHORK):
       newState = {...state,  chromatic: action.chromatic, skip: {}};
@@ -150,7 +149,6 @@ function controlsReducer(state, action) {
       renderKeySignature(newState.key)
       clearNotes();
       if (animateRoll.isRunning()) restartAnimation();
-      action.target.blur();
       return newState;
     case (CMD_SET_KEY):
       newState = {...state, key: action.key, skip: {}};
@@ -158,70 +156,54 @@ function controlsReducer(state, action) {
       renderKeySignature(newState.key)
       clearNotes();
       if (animateRoll.isRunning()) restartAnimation();
-      action.target.blur(); // remove focus from widget so typing does not change selection
       return newState;
     case (CMD_SET_RANGE_LOW):
       newState = {...state, rangeLow: action.low };
       setUpKey(newState);
-      action.target.blur();
       return newState;
     case (CMD_SET_RANGE_HIGH):
       newState = {...state, rangeHigh: action.high };
       setUpKey(newState);
-      action.target.blur();
       return newState;
     case (CMD_SET_FUNC):
       newState = {...state, func: action.func};
       setNoteFunction(newState);
-      action.target.blur();
       return newState;
     case (CMD_SET_INPUT):
       return {...state, input: action.input};
     case (CMD_SET_OCTEQ):
-      action.target.blur(); // remove focus from widget so typing does not change selection
       return {...state, octEq: action.octEq};
     case (CMD_SET_OCT_HIGHER):
-      action.target.blur();
       return {...state, octHigher: action.octHigher};
     case (CMD_SET_AMP):
-      action.target.blur();
       return {...state, amp: action.amp};
     case (CMD_SET_HIDE):
-      action.target.blur();
       return {...state, hide: action.hide};
     case (CMD_SET_VELOCITY):
       return {...state, animationVelocity: action.vel};
     case (CMD_SET_TONE):
-      action.target.blur();
       return {...state, tone: action.tone};
     case (CMD_SET_CHORD_OR_ARPG):
-      action.target.blur();
       return {...state, chordOrArpg: action.chordOrArpg };
     case (CMD_SET_LOOPS):
       return {...state, loops: action.loops};
     case (CMD_SET_TONE3):
-      action.target.blur();
       return {...state, tone3: action.tone3};
     case (CMD_SET_TONE5):
-      action.target.blur();
       return {...state, tone5: action.tone5};
     case (CMD_SET_TONE7):
-      action.target.blur();
       return {...state, tone7: action.tone7};
     case (CMD_SET_LOOP_PLAY_TIME):
       return {...state, loopPlayTime: action.loopPlayTime};
     case (CMD_SET_LOOP_PAUSE_TIME):
       return {...state, loopPauseTime: action.loopPauseTime};
     case (CMD_SET_SENSED):
-      action.target.blur();
       return {...state, sensedDisplay: action.sensedDisplay };
     case (CMD_SET_SENSED_TRIGGER):
-      action.target.blur();
       return {...state, sensedTrigger: action.sensedTrigger };
     case (CMD_SET_SENSED_TRIGGER_THRESHOLD):
       return {...state, sensedTriggerThreshold: action.sensedTriggerThreshold };
     case (CMD_SET_BEEP):
-      action.target.blur();
       return {...state, beep: action.beep };
     case (CMD_SET_SKIP):
       const {skipNote:skn, skipChecked:skc} = action;
@@ -230,9 +212,9 @@ function controlsReducer(state, action) {
       } else {
         state.skip = {...state.skip, ...{[action.skipNote]: action.skipChecked}};
       }
-      action.target.blur();
       return {...state};
   }
+  console.warn('no switch command was found or done and no state was changed');
   return state;
 }
 
