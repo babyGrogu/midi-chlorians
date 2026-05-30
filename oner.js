@@ -350,7 +350,7 @@ const Controls = (props) => {
         }>
           <option value={NONE}>No input</option>
           <option value="mic">Microphone</option>
-          <option value="cable">Instrument Cable (to USB)</option>
+          <option value="cable">KATANA GO (USB cable)</option>
         </select>
         <label> input </label>
       </div>
@@ -534,7 +534,7 @@ const Controls = (props) => {
       <div className="vertSpacer"></div>
 
       <div>
-        <input id="velocity" type="range" value={rcs.animationVelocity} min="10" max="1000"
+        <input id="velocity" type="range" value={rcs.animationVelocity} min="10" max="200"
           onChange={e =>
             dispatch({
               command: CMD_SET_VELOCITY,

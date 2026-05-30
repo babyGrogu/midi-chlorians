@@ -123,9 +123,10 @@ let notesActual = [], notesMinimum = [], noteNamesInKey = [], noteNamesChromatic
 let analyser = null;
 let audioContext = null;
 let rafID = null;
-let bigger = 2;  // 4 caused the note to not align with the target, although even 2
-// did this so maybe there is some other animation issue
-let buf = new Float32Array( 2048 * bigger );
+let bufferScale = 2; // 2 seems best for lowish E1-B1 notes when played on E string
+// when E1-B1 notes played on B string the fundamental disapears quickly and the E2-B2
+// overtones are more very soon louder!
+let bufferAnalyserData = new Float32Array(2048 * bufferScale); // must be multiples of 2048
 
 
 // onload handler has to be at top
@@ -195,7 +196,7 @@ async function startAudioListening() {
     mediaStreamSource = audioContext.createMediaStreamSource(stream);
 
     analyser = audioContext.createAnalyser();
-    analyser.fftSize = 2048 * bigger;
+    analyser.fftSize = bufferAnalyserData.length;
 
     // Connect analyser to the destination.
     mediaStreamSource.connect(analyser);
@@ -235,7 +236,7 @@ async function startAudioListening() {
 
       const usbDevice = devices.find(device =>
         device.kind === 'audioinput' &&
-        device.label.includes('USB')
+        device.label.includes('KATANA:GO AUDIO')
       );
 
       if (!usbDevice) {
@@ -343,8 +344,8 @@ function updatePitch() {
   // TODO: ?? make a ui widget
   const trigger = 2;// B0 27 hz nm#2 i can't beleive this works!
 
-	analyser.getFloatTimeDomainData( buf );
-	var noteFreq = autoCorrelate( buf, audioContext.sampleRate );
+	analyser.getFloatTimeDomainData(bufferAnalyserData);
+	var noteFreq = autoCorrelate(bufferAnalyserData, audioContext.sampleRate);
   const thresh = (rcs.sensedTrigger) ? ' Threshold: ' + rcs.sensedTriggerThreshold : '';
 
   //animationFramesCtr++;
@@ -357,7 +358,7 @@ function updatePitch() {
 
     // this is our test range for respond
     if (notesMinimum[trigger].f <= noteFreq && noteFreq < notesMinimum[trigger+1].f) {
-      console.log('g4 seen');
+      console.log('B0 seen');
       // TODO: add a beep here
       respondFake();
     }
