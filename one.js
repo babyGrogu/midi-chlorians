@@ -342,7 +342,7 @@ function binarySearch(freq) {
 function updatePitch() {
 
   // TODO: ?? make a ui widget
-  const trigger = 2;// B0 27 hz nm#2 i can't beleive this works!
+  const trigger = 2; // B0, 27hz, nm#2 i can't beleive this works!
 
 	analyser.getFloatTimeDomainData(bufferAnalyserData);
 	var noteFreq = autoCorrelate(bufferAnalyserData, audioContext.sampleRate);
@@ -357,9 +357,11 @@ function updatePitch() {
 	 	pitchElem.innerText = Math.round( noteFreq ) ;
 
     // this is our test range for respond
-    if (notesMinimum[trigger].f <= noteFreq && noteFreq < notesMinimum[trigger+1].f) {
+    if (notesMinimum[trigger].f <= noteFreq
+        && noteFreq < notesMinimum[trigger+1].f
+        && ! rcs.sensedTrigger) {
       console.log('B0 seen');
-      // TODO: add a beep here
+      beepBeep();
       respondFake();
     }
 
@@ -385,10 +387,8 @@ function updatePitch() {
             if (rcs.sensedTrigger && sensedThresholdCnt >= rcs.sensedTriggerThreshold) {
               sensedThresholdCnt = 0;
               releaseNoteAtTarget();
-              rcs.sensedDisplay = false;
-              rcs.sensedTrigger = false;
-              // seems like this fRUT would be needed here but it is not???
-              //forceReactUpdateTrick();
+              dispatchRef({command: CMD_SET_SENSED, sensedDisplay: false});
+              dispatchRef({command: CMD_SET_SENSED_TRIGGER, sensedTrigger: false});
             }
           }
         }
@@ -682,6 +682,7 @@ function stopPadAll() {
 function beep() {
   const beepGain = audioContext.createGain();
   beepGain.connect(audioContext.destination);
+  beepGain.gain.value = 0.23;
 
   const beep = audioContext.createOscillator();
   beep.type = "sine";
@@ -690,6 +691,12 @@ function beep() {
   const now = audioContext.currentTime;
   beep.start(now);
   beep.stop(now + 0.204);
+}
+function beepBeep() {
+  beep();
+  setTimeout(() => {
+    beep();
+  }, 300);
 }
 
 // among noteNamesInKey not for all chromatic notes
@@ -740,19 +747,14 @@ function stopIt() {
   stopPadAll();
   stopLoopingTimers();
   sensedThresholdCnt = 0;
-  rcs.sensedDisplay = false;
-  rcs.sensedTrigger = false
-  rcs.runMode = false;
-  // seems like this fRUT would be needed here but it is not???
-  // even if above frut is not there
-  //forceReactUpdateTrick();
+  dispatchRef({command: CMD_SET_SENSED, sensedDisplay: false});
+  dispatchRef({command: CMD_SET_SENSED_TRIGGER, sensedTrigger: false});
+  dispatchRef({command: CMD_SET_CNR, runMode: false});
 }
 
-// TODO: would like to call controlsReducer and have it behave
-// like the user clicked on Respond
 function respondFake() {
-  rcs.sensedDisplay = true;
-  rcs.sensedTrigger = true
+  dispatchRef({command: CMD_SET_SENSED, sensedDisplay: true});
+  dispatchRef({command: CMD_SET_SENSED_TRIGGER, sensedTrigger: true});
   respond();
 }
 

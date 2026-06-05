@@ -1,6 +1,6 @@
 'use strict';
 
-const { useReducer, useEffect, useCallback, StrictMode } = React
+const { StrictMode } = React
 const { createRoot } = ReactDOM;
 
 const CMD_SET_CNR = 'CMD_SET_CNR';
@@ -31,6 +31,7 @@ const CMD_SET_BEEP = 'BEEP';
 const CMD_SET_FUNC = 'FUNC';
 const CMD_SET_SKIP = 'SKIP';
 let rcs = {}; // reducer controlled state
+let dispatchRef = null; // handle to dispatcher
 
 
 // following works for objects now, not yet for arrays
@@ -121,8 +122,7 @@ function renderKeysForKeySelection(type) {
 
 function controlsReducer(state, action) {
   let newState = {};
-  if (action.target)
-    action.target.blur(); // remove focus from widget so keyboard does not change selection
+  action?.target?.blur(); // remove focus from widget so keyboard does not change selection
   switch(action.command) {
     case (CMD_SET_CNR):
       startAnimation();
@@ -221,27 +221,49 @@ function controlsReducer(state, action) {
 
 let forceReactUpdateTrick = null;
 const Controls = (props) => {
-  const [reducerControlledState, dispatch] = useReducer(controlsReducer, initialState);
+  const [reducerControlledState, dispatch] = React.useReducer(controlsReducer, initialState);
   const [, updateReactTrick] = React.useState();
-  // use this trick to update react each when loopsCtr changes
+
+  // use this trick to update React DOM when loopsCtr changes
+  // updateReactTrick is the usual setVariable function created by useState();
+  // it would change on each rendering of this control,
+  // useCallback makes a "memoized" version of that function that does not change
+  // for each render so it can be always be called to "set a variable" which causes
+  // react to be updated, neat!
+  //
+  // loopsCtr is a variable that changes via setTimeout so no dispatchRef call
+  // can be re-used, using this technique for timer, network, webaudio, konva... variables
+  // whose values may show up in the UI but are not changeable by UI widgets
+  //
   // if we get lots of variables that change like this and need updates maybe
   // try using React.useSyncExternalStore that stores all the variables that
   // react needs to be updated for
   forceReactUpdateTrick = React.useCallback(() => updateReactTrick({}), []);
   
+  // dispatch is essentially the function used to signal that some action has
+  // taken place from (ui, network, timer, browser.animationFrame, webAudio ...)
+  // and state variables need to change
+  //
+  // whereas the controlsReducer is used by the react system to actually change
+  // the state according to the action that took place, controlsReducer maybe
+  // change none, one or many ui state variables
+  dispatchRef = dispatch;
   rcs = reducerControlledState;
-  const noteNamesInKeyOrChromatic = (rcs.chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
-  const noteLabelsInKeyOrChromatic = getListOfNotesToBeSelected();
+  console.log(' rcs and dispatchRef reset');
 
   // store values so next window load can reuse
-  useEffect(() => {
+  React.useEffect(() => {
+    console.log(' useEffect called ');
     const c = findChangesFromDefault(rcs);
     if (Object.keys(c).length) {
       window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(c));
     } else {
       window.localStorage.removeItem(LOCAL_STORAGE_KEY);
     }
-  }, [rcs]);
+  }, [reducerControlledState]);
+
+  const noteNamesInKeyOrChromatic = (rcs.chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
+  const noteLabelsInKeyOrChromatic = getListOfNotesToBeSelected();
 
   return (
     <div>
