@@ -74,6 +74,7 @@ const FUNC_ASC = 'ASC';
 const FUNC_DESC = 'DESC';
 
 const RUN_MODE_CNR = 'C&R';
+const RUN_MODE_OLDSTYLE = 'OLDSTYLE';
 
 // keep defaultState to one level of nested objects so the localStorage of ui settings will work
 const defaultState = {
@@ -357,7 +358,8 @@ function updatePitch() {
 	 	pitchElem.innerText = Math.round( noteFreq ) ;
 
     // this is our test range for respond
-    if (notesMinimum[trigger].f <= noteFreq
+    if (rcs.runMode 
+        && notesMinimum[trigger].f <= noteFreq
         && noteFreq < notesMinimum[trigger+1].f
         && ! rcs.sensedTrigger) {
       console.log('B0 seen');
@@ -366,7 +368,10 @@ function updatePitch() {
     }
 
     // if the frequency seen is in our UI set range limits...
-    if (notesMinimum[0].f <= noteFreq && noteFreq < notesActual[notesActual.length-1].f) {
+    if (rcs.runMode
+      && notesMinimum[0].f <= noteFreq
+      && noteFreq < notesActual[notesActual.length-1].f
+    ) {
       const noteSensed = binarySearch(noteFreq);
       if (noteSensed) {
         if (rcs.sensedDisplay) {
@@ -380,15 +385,17 @@ function updatePitch() {
 
         const firstUnplayedNote = findFirstUnplayedNote();
 
-        if (rcs.runMode === RUN_MODE_CNR && rcs.sensedDisplay && rcs.sensedTrigger) {
+        if (rcs.sensedDisplay && rcs.sensedTrigger) {
           if (firstUnplayedNote && noteSensed.n === firstUnplayedNote.n &&
               (rcs.octEq ? true : noteSensed.l === firstUnplayedNote.l)) {
             if (rcs.sensedTrigger) sensedThresholdCnt++;
             if (rcs.sensedTrigger && sensedThresholdCnt >= rcs.sensedTriggerThreshold) {
               sensedThresholdCnt = 0;
               releaseNoteAtTarget();
-              dispatchRef({command: CMD_SET_SENSED, sensedDisplay: false});
-              dispatchRef({command: CMD_SET_SENSED_TRIGGER, sensedTrigger: false});
+              if (rcs.runMode === RUN_MODE_CNR) {
+                dispatchRef({command: CMD_SET_SENSED, sensedDisplay: false});
+                dispatchRef({command: CMD_SET_SENSED_TRIGGER, sensedTrigger: false});
+              }
             }
           }
         }
@@ -747,9 +754,7 @@ function stopIt() {
   stopPadAll();
   stopLoopingTimers();
   sensedThresholdCnt = 0;
-  dispatchRef({command: CMD_SET_SENSED, sensedDisplay: false});
-  dispatchRef({command: CMD_SET_SENSED_TRIGGER, sensedTrigger: false});
-  dispatchRef({command: CMD_SET_CNR, runMode: false});
+  sensedEle.innerHTML = '';
 }
 
 function respondFake() {

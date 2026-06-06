@@ -3,9 +3,12 @@
 const { StrictMode } = React
 const { createRoot } = ReactDOM;
 
-const CMD_SET_CNR = 'CMD_SET_CNR';
-const CMD_SET_CNR_RESPOND = 'CMD_SET_CNR_RESPOND';
+const CMD_SET_RM_CNR = 'SET_RM_CNR';
+const CMD_SET_CNR_RESPOND = 'SET_CNR_RESPOND';
 const CMD_RESET = 'RESET';
+const CMD_STOP = 'STOP';
+const CMD_SET_RM_OLDSTYLE = 'SET_RM_OLDSTYLE';
+
 const CMD_SET_INPUT = 'LISTENING';
 const CMD_SET_OCTEQ = 'OCT_EQ';
 const CMD_SET_OCT_HIGHER = 'OCT_HIGHER';
@@ -124,7 +127,7 @@ function controlsReducer(state, action) {
   let newState = {};
   action?.target?.blur(); // remove focus from widget so keyboard does not change selection
   switch(action.command) {
-    case (CMD_SET_CNR):
+    case (CMD_SET_RM_CNR):
       startAnimation();
       return {...state,
         runMode: RUN_MODE_CNR,
@@ -143,6 +146,20 @@ function controlsReducer(state, action) {
       renderKeySignature(initialState.key)
       setNoteFunction(newState);
       return newState;
+    case (CMD_STOP):
+      stopIt();
+      return {...state,
+        runMode: false,
+        sensedDisplay: false,
+        sensedTrigger: false
+      };
+    case (CMD_SET_RM_OLDSTYLE):
+      startAnimation();
+      return {...state,
+        runMode: RUN_MODE_OLDSTYLE,
+        sensedDisplay: true,
+        sensedTrigger: true
+      };
     case (CMD_SET_CHORK):
       newState = {...state,  chromatic: action.chromatic, skip: {}};
       setUpKey(newState);
@@ -575,10 +592,18 @@ const Controls = (props) => {
       </div>
 
       <div className="vertSpacer"></div>
+      <div className="vertSpacer"></div>
 
       <div>
         <button onClick={e => dispatch({
-          command: CMD_SET_CNR,
+          command: CMD_SET_RM_OLDSTYLE,
+          target: e.currentTarget
+        })}>Old Style</button>
+      </div>
+      <div className="vertSpacer"></div>
+      <div>
+        <button onClick={e => dispatch({
+          command: CMD_SET_RM_CNR,
           target: e.currentTarget
         })}>Call</button>
         <span className="horizSpacer"></span>
@@ -586,8 +611,13 @@ const Controls = (props) => {
           command: CMD_SET_CNR_RESPOND,
           target: e.currentTarget
         })}>Respond</button>
-        <span className="horizSpacer"></span>
-        <button onClick={e => { e.currentTarget.blur(); stopIt()}}>Stop</button>
+      </div>
+      <div className="vertSpacer"></div>
+      <div>
+        <button onClick={e => dispatch({
+          command: CMD_STOP,
+          target: e.currentTarget
+        })}>Stop</button>
         <span className="horizSpacer"></span>
         <button onClick={e => dispatch({
           command: CMD_RESET,
