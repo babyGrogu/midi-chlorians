@@ -400,8 +400,7 @@ function renderNote(note) {
   let accidentalK = null;
   if (rcs.chromatic) {
     let idx = noteNamesInKey.findIndex(n => n === note.n);
-    // if not is not in the key then need to figure out that accidental to use
-    // this logic works for all the non-enharmonic keys so 0-5, 8-12, 15-20, 23-27
+    // if note is not in the key then need to figure out which accidental to use
     if (idx === -1) {
       const c2 = note.n[1];
       const label = getLabelForNote(note.n);

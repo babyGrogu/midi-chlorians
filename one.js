@@ -112,7 +112,7 @@ let keySteps = MAJOR_SCALE_HALF_STEPS;
 let chooseNoteTimer = -1;
 //let animationFramesCtr = 0;
 let sensedThresholdCnt = 0;
-let pitchElem, noteElem, sensedEle, detuneElem, detuneAmount, lastPlayed;
+let hertzElem, noteElem, sensedEle, detuneElem, detuneAmount, lastPlayed;
 let loopNote, loopsCtr, timeoutRoot, timeoutPadPauseUntilLoopRestart, timeoutThird, timeoutFifth, timeoutSeventh;
 let padOscillatorsAtFreq = {};
 let inited =  false; // inited doesn't have a UI setting so keeping out of rcs
@@ -132,7 +132,7 @@ let bufferAnalyserData = new Float32Array(2048 * bufferScale); // must be multip
 
 // onload handler has to be at top
 window.onload = function () {
-  pitchElem = document.getElementById("pitch");
+  hertzElem = document.getElementById("hertz");
   noteElem = document.getElementById("note");
   sensedEle = document.getElementById("sensed");
   detuneElem = document.getElementById("detune");
@@ -351,11 +351,11 @@ function updatePitch() {
 
   //animationFramesCtr++;
  	if (noteFreq == -1) {
-	 	  pitchElem.innerText = "--";
-		  noteElem.innerText = "-";
+	 	  hertzElem.innerText = "--";
+		  noteElem.innerText = "--";
 		  detuneAmount.innerText = "--";
  	} else {
-	 	pitchElem.innerText = Math.round( noteFreq ) ;
+	 	hertzElem.innerText = Math.round( noteFreq ) ;
 
     // this is our test range for respond
     if (rcs.runMode 
@@ -377,10 +377,7 @@ function updatePitch() {
         if (rcs.sensedDisplay) {
 	 	      //const note = noteFromPitch( noteFreq );
       		//noteElem.innerHTML = NOTES[note%12];
-          //noteElem.innerHTML = noteSensed.n + ' ' + noteSensed.l + ' ' + noteSensed.f;
-          // TODO: maybe show the note label correctly (see tooltips) rather than =/NOTE note
-          // TODO: maybe offer controls showing freqency
-          noteElem.innerHTML = noteSensed.n + ' ' + noteSensed.l;
+          noteElem.innerHTML = getLabelForNote(noteSensed.n) + ' ' + noteSensed.l;
         }
 
         const firstUnplayedNote = findFirstUnplayedNote();
@@ -772,7 +769,7 @@ function respond() {
 
 function setUpKey(state) {
   noteNamesInKey = calculateNoteNamesInKey(state.key, false);
-  noteNamesChromaticForKey = (state.chromatic) ? calculateNoteNamesInKey(state.key, true) : [];
+  noteNamesChromaticForKey =  calculateNoteNamesInKey(state.key, true);
   const notesSelected = (state.chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
 
   // for the key note names, find the notes in range

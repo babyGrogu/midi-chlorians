@@ -77,13 +77,12 @@ function noteLabelForRange(str) {
 }
 
 function getLabelForNote(noteString) {
-  const noteNames = (rcs.chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
-  const i = noteNames.indexOf(noteString);
-  return getListOfNotesToBeSelected()[i];
+  const i = noteNamesChromaticForKey.indexOf(noteString);
+  return getListOfNotesToBeSelected(true)[i];
 }
 
-function getListOfNotesToBeSelected() {
-  const noteNames = (rcs.chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
+function getListOfNotesToBeSelected(chromatic) {
+  const noteNames = (chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
   const k = rcs.key;
   const sharp = isSharpKey(k);
   const enharmonicCases = (k === 6 || k === 7 || k === 13 || k === 14 || k === 21 || k === 22 ||
@@ -280,7 +279,7 @@ const Controls = (props) => {
   }, [reducerControlledState]);
 
   const noteNamesInKeyOrChromatic = (rcs.chromatic) ? noteNamesChromaticForKey : noteNamesInKey;
-  const noteLabelsInKeyOrChromatic = getListOfNotesToBeSelected();
+  const noteLabelsInKeyOrChromatic = getListOfNotesToBeSelected(rcs.chromatic);
 
   return (
     <div>
