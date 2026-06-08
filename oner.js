@@ -265,11 +265,9 @@ const Controls = (props) => {
   // change none, one or many ui state variables
   dispatchRef = dispatch;
   rcs = reducerControlledState;
-  console.log(' rcs and dispatchRef reset');
 
   // store values so next window load can reuse
   React.useEffect(() => {
-    console.log(' useEffect called ');
     const c = findChangesFromDefault(rcs);
     if (Object.keys(c).length) {
       window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(c));

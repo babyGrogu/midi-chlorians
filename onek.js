@@ -437,6 +437,11 @@ function renderNote(note) {
   newNoteK.on('mouseout', function () {
     tooltip.hide();
   });
+  newNoteK.on('mouseup', function (evt) {
+    stopIt();
+    loopNote = evt.currentTarget.getAttr(ATTR_NOTE);
+    oneLoopPadStart();
+  });
 
   newNoteK.setAttr(ATTR_NOTE, note);
   newNoteK.setAttr(ATTR_NOTE_PLAYED, false);
@@ -739,7 +744,6 @@ const animateRoll = new Konva.Animation(function (frame) {
     const n = animateNoteFunction();
     renderNote(n);
   }
-
 
   // as each notes passes the target stop the animation and optionally play tone
   const konvaNote = findFirstUnplayedKonvaNote();

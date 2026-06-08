@@ -604,6 +604,7 @@ function oneLoopPadStop(loopFreq) {
   stopOscsFromRoot(loopFreq);
   loopsCtr--; forceReactUpdateTrick();
   timeoutPadPauseUntilLoopRestart = setTimeout(() => {
+    // if loopsCtr is above 0 then restart the loop
     if (loopsCtr > 0) {
       oneLoopPadStart();
     }
@@ -742,7 +743,6 @@ function restartAnimation() {
   if (! animateRoll.isRunning()) {
     animateRoll.start();
   }
-  //oneLoopPadStart();
 }
 
 function stopIt() {
