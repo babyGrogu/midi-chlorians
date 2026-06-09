@@ -108,8 +108,11 @@ function getListOfNotesToBeSelected(chromatic) {
   });
 }
 
-function renderNoteRangeForClef() {
-  const notesForRangeSelectors = notesActual.slice(2, 34+1); // 2=B0 , 34=G3
+function renderNoteRangeForSelector(isLowSelector) {
+  const lowest = 2, highest = 34+1; // 2=B0 , 34=G3
+  const notesForRangeSelectors = (isLowSelector) ?
+    notesActual.slice(lowest, rcs.rangeHigh) :
+    notesActual.slice(rcs.rangeLow + 1, highest);
   return notesForRangeSelectors.map(n => {
     return (<option key={n.i} value={n.i}>{noteLabelForRange(n.n) + ' ' + n.l}</option>);
   });
@@ -343,7 +346,7 @@ const Controls = (props) => {
               target: e.currentTarget,
             })
           }
-        >{ renderNoteRangeForClef() }</select>
+        >{ renderNoteRangeForSelector(true) }</select>
         <label> lowest note </label>
         <span className="horizSpacer"></span>
         <select id="selectHigh" value={rcs.rangeHigh}
@@ -354,7 +357,7 @@ const Controls = (props) => {
               target: e.currentTarget
             })
           }
-        >{ renderNoteRangeForClef() }</select>
+        >{ renderNoteRangeForSelector(false) }</select>
         <label> highest note </label>
       </div>
       <div className="vertSpacer"></div>
