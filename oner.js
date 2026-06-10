@@ -573,7 +573,7 @@ const Controls = (props) => {
       <div className="vertSpacer"></div>
 
       <div>
-        <input id="velocity" type="range" value={rcs.animationVelocity} min="10" max="200"
+        <input id="velocity" type="range" value={rcs.animationVelocity} min="10" max="125"
           onChange={e =>
             dispatch({
               command: CMD_SET_VELOCITY,

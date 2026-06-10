@@ -87,7 +87,7 @@ const defaultState = {
   key: 0, // 0 = C major
   rangeLow: 2,
   rangeHigh: 34,
-  animationVelocity: 420,
+  animationVelocity: 123,
   tone: true, // play tone when stopped at target
   tone3: false, // play the third
   tone5: false, // play the fifth

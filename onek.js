@@ -13,7 +13,7 @@ const lineSpacing = 16;
 const linesInStaff = 5;
 const topLine = 20;
 
-const noteTotalWidth = 80; //noteSpacing + noteWidth;
+const noteSpacing = 80;
 const noteRadiusX = 6;
 const noteRadiusY = 8;
 const noteStrokeWidth = 3;
@@ -23,7 +23,7 @@ const noteColor = 'black';
 const staffColor = 'green';
 const staffLineSegmentLength = noteRadiusY*2;
 const noteStemSpacing = 3; // in units of the lineSpacing variable
-const targetPercent = 33;
+const targetPercent = 34;
 const numOfNotes = 12;
 
 // the x values at which notes are created and destroyed
@@ -68,14 +68,14 @@ function initKonva(initialStateKey) {
   };
 
   targetX = width * targetPercent/100;
-  targetZoneWidth = width * .02;
+  targetZoneWidth = noteSpacing - noteRadiusX;
   const targetColor = 'green';
   const targetHeight = lineSpacing * 10 + 2 * noteRadiusY;
   const target = new Konva.Line({
     points: [targetX, topLine - 2 * noteRadiusY,
              targetX, topLine - 2 * noteRadiusY + targetHeight],
     stroke: targetColor,
-    strokeWidth: 3, 
+    strokeWidth: 2, 
   });
   layer.add(target);
 
@@ -340,7 +340,7 @@ function createAndCacheElements() {
 }
 
 // note relates to values in noteMapActuals
-function renderNote(note) {
+function renderNoteAndMeasures(note) {
   // get noteIndex to staff line mapping given the instrument, and key
   let noteK;
   let staffLine = getStaffLine(note, rcs.key);
@@ -381,8 +381,8 @@ function renderNote(note) {
       break;
   }
 
-  const noteInsertionPoint = noteCreateX + noteTotalWidth * beatCtr;
-  const measureInsertionPoint = noteInsertionPoint - noteTotalWidth/2;
+  const noteInsertionPoint = noteCreateX + noteSpacing * beatCtr;
+  const measureInsertionPoint = noteInsertionPoint - noteSpacing/2;
   if ((beatCtr % 4) === 0) {
     const m = measure.clone({
       x: measureInsertionPoint,
@@ -712,15 +712,31 @@ function getStaffLine(note, keyIndex) {
 
 const animateRoll = new Konva.Animation(function (frame) {
 
+  const c = roll.getChildren();
+  let child, childX, animVel = rcs.animationVelocity;
+
+  // rollX get more and more negative as time goes by
+  // therefore each childX keeps getting bigger positive so they appear on screen
+  const rollX = roll.getAttr('x')
+
+  // at the begging of the animation have the notes zoom in quicker
+  // the farther they are out to the right of the target
+  if (c?.length) {
+    child = c[0];
+    childX = rollX + child.getAttr('x')
+    const child0ToTargetX = childX - targetX;
+    const noteCrXToTargetX = noteCreateX - targetX;
+    if (child0ToTargetX > targetZoneWidth/2) {
+      animVel = animVel + 4 * animVel * child0ToTargetX /noteCrXToTargetX; 
+    }
+  }
+
   // frame.timeDiff is never very big even after a stop and start
-  const newX = roll.getAttr('x') - frame.timeDiff/1000 * rcs.animationVelocity;
-  roll.x(newX);
+  const newX = roll.getAttr('x') - frame.timeDiff/1000 * animVel;
 
 
   // destroy notes on left and create notes on right
-  const c = roll.getChildren();
-  if (c && c.length) {
-    let child, childX;
+  if (c?.length) {
     for (let i=0; i<c.length; i++) {
       child = c[i];
       childX = newX + child.getAttr('x')
@@ -733,31 +749,31 @@ const animateRoll = new Konva.Animation(function (frame) {
   }
 
   // depending on where last note rendered was maybe create another one
-  if (c && c.length) {
+  if (c?.length) {
     child = c[c.length-1];
     childX = newX + child.getAttr('x')
-    if (childX > 0 && childX <= noteCreateX - noteTotalWidth) {
+    if (childX > 0 && childX <= noteCreateX - noteSpacing) {
       const n = animateNoteFunction();
-      renderNote(n);
+      renderNoteAndMeasures(n);
     }
   } else {
     const n = animateNoteFunction();
-    renderNote(n);
+    renderNoteAndMeasures(n);
   }
 
   // as each notes passes the target stop the animation and optionally play tone
   const konvaNote = findFirstUnplayedKonvaNote();
   if (konvaNote) {
     const konvaNoteX = konvaNote.getAttr('x') + newX  + noteRadiusX + 4;
-    const targetLineX = targetX + targetZoneWidth/2;
-    //console.log(' knx ' + konvaNoteX + '    ' + ' tlx ' + targetLineX);
-    if (konvaNoteX <= targetLineX) {
+    if (konvaNoteX <= targetX + noteRadiusX + 5) {
       animateRoll.stop();
       if (rcs.tone) {
         startLooping(konvaNote.getAttr(ATTR_NOTE));
       }
     }
   }
+
+  roll.x(newX);
 
 }, layer);
 
@@ -790,6 +806,6 @@ function testRenderLowestKeyNotes() {
   const firstNoteOfKeyIndex = notesActualInKeyForRange.findIndex(n => n.n === rcs.key.root);
   const testNotes = notesActualInKeyForRange.slice(firstNoteOfKeyIndex,firstNoteOfKeyIndex+8);
   testNotes.forEach(n => {
-    renderNote(n);
+    renderNoteAndMeasures(n);
   });
 }
