@@ -96,9 +96,9 @@ const defaultState = {
   loops: 1,
   loopPlayTime: 800,
   loopPauseTime: 0,
-  sensedDisplay: false,
-  sensedTriggerThreshold: 23,
-  sensedTrigger: false,
+  detectedDisplay: false,
+  detectedTriggerThreshold: 23,
+  detectedTrigger: false,
   beep: false,
   func: FUNC_RANDO,
   skip: {},
@@ -111,8 +111,8 @@ let notesActualInKeyForRange = [];
 let keySteps = MAJOR_SCALE_HALF_STEPS;
 let chooseNoteTimer = -1;
 //let animationFramesCtr = 0;
-let sensedThresholdCnt = 0;
-let hertzElem, noteElem, sensedEle, detuneElem, detuneAmount, lastPlayed;
+let detectedThresholdCnt = 0;
+let hertzElem, noteElem, detectedEle, detuneElem, detuneAmount, lastPlayed;
 let loopNote, loopsCtr, timeoutRoot, timeoutPadPauseUntilLoopRestart, timeoutThird, timeoutFifth, timeoutSeventh;
 let padOscillatorsAtFreq = {};
 let inited =  false; // inited doesn't have a UI setting so keeping out of rcs
@@ -134,7 +134,7 @@ let bufferAnalyserData = new Float32Array(2048 * bufferScale); // must be multip
 window.onload = function () {
   hertzElem = document.getElementById("hertz");
   noteElem = document.getElementById("note");
-  sensedEle = document.getElementById("sensed");
+  detectedEle = document.getElementById("detected");
   detuneElem = document.getElementById("detune");
   detuneAmount = document.getElementById("detune_amt");
   lastPlayed = document.getElementById("lastPlayed");
@@ -347,7 +347,7 @@ function updatePitch() {
 
 	analyser.getFloatTimeDomainData(bufferAnalyserData);
 	var noteFreq = autoCorrelate(bufferAnalyserData, audioContext.sampleRate);
-  const thresh = (rcs.sensedTrigger) ? ' Threshold: ' + rcs.sensedTriggerThreshold : '';
+  const thresh = (rcs.detectedTrigger) ? ' Threshold: ' + rcs.detectedTriggerThreshold : '';
 
   //animationFramesCtr++;
  	if (noteFreq == -1) {
@@ -361,7 +361,7 @@ function updatePitch() {
     if (rcs.runMode 
         && notesMinimum[trigger].f <= noteFreq
         && noteFreq < notesMinimum[trigger+1].f
-        && ! rcs.sensedTrigger) {
+        && ! rcs.detectedTrigger) {
       console.log('B0 seen');
       beepBeep();
       respondFake();
@@ -372,40 +372,40 @@ function updatePitch() {
       && notesMinimum[0].f <= noteFreq
       && noteFreq < notesActual[notesActual.length-1].f
     ) {
-      const noteSensed = binarySearch(noteFreq);
-      if (noteSensed) {
-        if (rcs.sensedDisplay) {
+      const noteDetected = binarySearch(noteFreq);
+      if (noteDetected) {
+        if (rcs.detectedDisplay) {
 	 	      //const note = noteFromPitch( noteFreq );
       		//noteElem.innerHTML = NOTES[note%12];
-          noteElem.innerHTML = getLabelForNote(noteSensed.n) + ' ' + noteSensed.l;
+          noteElem.innerHTML = getLabelForNote(noteDetected.n) + ' ' + noteDetected.l;
         }
 
         const firstUnplayedNote = findFirstUnplayedNote();
 
-        if (rcs.sensedDisplay && rcs.sensedTrigger) {
-          if (firstUnplayedNote && noteSensed.n === firstUnplayedNote.n &&
-              (rcs.octEq ? true : noteSensed.l === firstUnplayedNote.l)) {
-            if (rcs.sensedTrigger) sensedThresholdCnt++;
-            if (rcs.sensedTrigger && sensedThresholdCnt >= rcs.sensedTriggerThreshold) {
-              sensedThresholdCnt = 0;
+        if (rcs.detectedDisplay && rcs.detectedTrigger) {
+          if (firstUnplayedNote && noteDetected.n === firstUnplayedNote.n &&
+              (rcs.octEq ? true : noteDetected.l === firstUnplayedNote.l)) {
+            if (rcs.detectedTrigger) detectedThresholdCnt++;
+            if (rcs.detectedTrigger && detectedThresholdCnt >= rcs.detectedTriggerThreshold) {
+              detectedThresholdCnt = 0;
               releaseNoteAtTarget();
               if (rcs.runMode === RUN_MODE_CNR) {
-                dispatchRef({command: CMD_SET_SENSED, sensedDisplay: false});
-                dispatchRef({command: CMD_SET_SENSED_TRIGGER, sensedTrigger: false});
+                dispatchRef({command: CMD_SET_DETECTED, detectedDisplay: false});
+                dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: false});
               }
             }
           }
         }
         if (rcs.hide) {
-          sensedEle.innerHTML = '';
+          detectedEle.innerHTML = '';
         }
-        else if (rcs.sensedDisplay) {
-          sensedEle.innerHTML = 'Sensed: ' + sensedThresholdCnt + thresh;
+        else if (rcs.detectedDisplay) {
+          detectedEle.innerHTML = 'Detected: ' + detectedThresholdCnt + thresh;
         } else {
-          sensedEle.innerHTML = 'Press Respond when ready';
+          detectedEle.innerHTML = 'Press Respond when ready';
         }
       } else {
-        console.warn('noteSensed not found: noteFreq=' + noteFreq);
+        console.warn('noteDetected not found: noteFreq=' + noteFreq);
       }
     }
 
@@ -750,13 +750,13 @@ function stopIt() {
   loopsCtr = 0; forceReactUpdateTrick();
   stopPadAll();
   stopLoopingTimers();
-  sensedThresholdCnt = 0;
-  sensedEle.innerHTML = '';
+  detectedThresholdCnt = 0;
+  detectedEle.innerHTML = '';
 }
 
 function respondFake() {
-  dispatchRef({command: CMD_SET_SENSED, sensedDisplay: true});
-  dispatchRef({command: CMD_SET_SENSED_TRIGGER, sensedTrigger: true});
+  dispatchRef({command: CMD_SET_DETECTED, detectedDisplay: true});
+  dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: true});
   respond();
 }
 
@@ -764,7 +764,7 @@ function respond() {
   stopCurrentNotePad();
   stopLoopingTimers();
   loopsCtr = 0; forceReactUpdateTrick();
-  sensedEle.innerHTML = 'Play something!';
+  detectedEle.innerHTML = 'Play something!';
 }
 
 function setUpKey(state) {

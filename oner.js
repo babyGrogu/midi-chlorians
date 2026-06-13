@@ -27,9 +27,9 @@ const CMD_SET_LOOP_PLAY_TIME = 'LOOP_PLAY_TIME';
 const CMD_SET_LOOP_PAUSE_TIME = 'LOOP_PAUSE_TIME';
 const CMD_SET_RANGE_LOW = 'RANGE_LOW';
 const CMD_SET_RANGE_HIGH = 'RANGE_HIGH';
-const CMD_SET_SENSED = 'SENSED';
-const CMD_SET_SENSED_TRIGGER = 'SENSED_TRIGGER';
-const CMD_SET_SENSED_TRIGGER_THRESHOLD = 'SENSED_TRIGGER_THRESHOLD';
+const CMD_SET_DETECTED = 'DETECTED';
+const CMD_SET_DETECTED_TRIGGER = 'DETECTED_TRIGGER';
+const CMD_SET_DETECTED_TRIGGER_THRESHOLD = 'DETECTED_TRIGGER_THRESHOLD';
 const CMD_SET_BEEP = 'BEEP';
 const CMD_SET_FUNC = 'FUNC';
 const CMD_SET_SKIP = 'SKIP';
@@ -133,14 +133,14 @@ function controlsReducer(state, action) {
       startAnimation();
       return {...state,
         runMode: RUN_MODE_CNR,
-        sensedDisplay: false,
-        sensedTrigger: false
+        detectedDisplay: false,
+        detectedTrigger: false
       };
     case (CMD_SET_CNR_RESPOND):
       respond();
       return {...state, 
-        sensedDisplay: true,
-        sensedTrigger: true
+        detectedDisplay: true,
+        detectedTrigger: true
       };
     case (CMD_RESET):
       newState = {...defaultState};
@@ -152,15 +152,15 @@ function controlsReducer(state, action) {
       stopIt();
       return {...state,
         runMode: false,
-        sensedDisplay: false,
-        sensedTrigger: false
+        detectedDisplay: false,
+        detectedTrigger: false
       };
     case (CMD_SET_RM_OLDSTYLE):
       startAnimation();
       return {...state,
         runMode: RUN_MODE_OLDSTYLE,
-        sensedDisplay: true,
-        sensedTrigger: true
+        detectedDisplay: true,
+        detectedTrigger: true
       };
     case (CMD_SET_CHORK):
       newState = {...state,  chromatic: action.chromatic, skip: {}};
@@ -216,12 +216,12 @@ function controlsReducer(state, action) {
       return {...state, loopPlayTime: action.loopPlayTime};
     case (CMD_SET_LOOP_PAUSE_TIME):
       return {...state, loopPauseTime: action.loopPauseTime};
-    case (CMD_SET_SENSED):
-      return {...state, sensedDisplay: action.sensedDisplay };
-    case (CMD_SET_SENSED_TRIGGER):
-      return {...state, sensedTrigger: action.sensedTrigger };
-    case (CMD_SET_SENSED_TRIGGER_THRESHOLD):
-      return {...state, sensedTriggerThreshold: action.sensedTriggerThreshold };
+    case (CMD_SET_DETECTED):
+      return {...state, detectedDisplay: action.detectedDisplay };
+    case (CMD_SET_DETECTED_TRIGGER):
+      return {...state, detectedTrigger: action.detectedTrigger };
+    case (CMD_SET_DETECTED_TRIGGER_THRESHOLD):
+      return {...state, detectedTriggerThreshold: action.detectedTriggerThreshold };
     case (CMD_SET_BEEP):
       return {...state, beep: action.beep };
     case (CMD_SET_SKIP):
@@ -396,35 +396,30 @@ const Controls = (props) => {
 
       <div>
         <span>
-          <input type="checkbox" id="sensedDisplay" checked={rcs.sensedDisplay} disabled={rcs.input === NONE} onChange={e =>
+          <input type="checkbox" id="detectedDisplay" checked={rcs.detectedDisplay} disabled={rcs.input === NONE} onChange={e =>
             dispatch({
-              command: CMD_SET_SENSED,
-              sensedDisplay: e.currentTarget.checked,
+              command: CMD_SET_DETECTED,
+              detectedDisplay: e.currentTarget.checked,
               target: e.currentTarget,
             })
           }/>
-          <label htmlFor="sensedDisplay">display sensedThreshold Count </label>
+          <label htmlFor="detectedDisplay">display note detected count</label>
         </span>
         <span>
-          <input type="checkbox" id="sensedTrigger" checked={rcs.sensedTrigger} disabled={rcs.input === NONE} onChange={e =>
+          <input type="checkbox" id="detectedTrigger" checked={rcs.detectedTrigger} disabled={rcs.input === NONE} onChange={e =>
             dispatch({
-              command: CMD_SET_SENSED_TRIGGER,
-              sensedTrigger: e.currentTarget.checked,
+              command: CMD_SET_DETECTED_TRIGGER,
+              detectedTrigger: e.currentTarget.checked,
               target: e.currentTarget,
             })
           }/>
-          <label htmlFor="sensedTrigger">sensed trigger (release note at sensed threshold)</label>
-        </span>
-        <span className="horizSpacer"></span>
-        <span className="horizSpacer"></span>
-        <span>
-          <input id="sensedTriggerThreshold" type="range" value={rcs.sensedTriggerThreshold} disabled={rcs.input === NONE || rcs.sensedTrigger === false} min="1" max="100" onChange={e =>
+          <input id="detectedTriggerThreshold" type="range" value={rcs.detectedTriggerThreshold} disabled={rcs.input === NONE || rcs.detectedTrigger === false} min="1" max="100" onChange={e =>
             dispatch({
-              command: CMD_SET_SENSED_TRIGGER_THRESHOLD,
-              sensedTriggerThreshold: parseInt(e.currentTarget.value,10),
+              command: CMD_SET_DETECTED_TRIGGER_THRESHOLD,
+              detectedTriggerThreshold: parseInt(e.currentTarget.value,10),
             })
           }/>
-          <label htmlFor="sensedTriggerThreshold"> {rcs.sensedTriggerThreshold} <b>Note sensed</b> threshold</label>
+          <label htmlFor="detectedTriggerThreshold"> {rcs.detectedTriggerThreshold} note detected release threshold</label>
         </span>
       </div>
       <div>
@@ -588,7 +583,7 @@ const Controls = (props) => {
             target: e.currentTarget,
           })
         }/>
-        <label htmlFor="hide"> Hide notes <b>AND SENSED</b> on staff until note is released </label>
+        <label htmlFor="hide"> Hide notes and detected count until note is released </label>
       </div>
 
       <div className="vertSpacer"></div>
