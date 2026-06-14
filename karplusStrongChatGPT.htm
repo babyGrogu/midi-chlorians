@@ -20,6 +20,8 @@
 
 <h1>Karplus–Strong Synth</h1>
 
+<button onclick="pluck( 55)">A1</button>
+<button onclick="pluck(110)">A2</button>
 <button onclick="pluck(220)">A3</button>
 <button onclick="pluck(440)">A4</button>
 <button onclick="pluck(660)">E5</button>
@@ -49,9 +51,31 @@ async function pluck(frequency) {
   // Initial burst of noise
   const buffer = new Float32Array(delayLength);
 
+  /*
   for (let i = 0; i < delayLength; i++) {
     buffer[i] = Math.random() * 2 - 1;
   }
+  */
+  // 1. Use low-passed noise as the excitation
+  /*
+  let prev = 0;
+  for (let i = 0; i < delayLength; i++) {
+    const white = Math.random() * 2 - 1;
+    prev = 0.8 * prev + 0.2 * white;
+    buffer[i] = prev;
+  }
+  */
+  //6. Pick position matters a lot
+  // Instead of filling the whole buffer with noise:
+  // excite only part of it:
+  const pickPos = Math.floor(delayLength * 0.23);
+  let prev = 0;
+  for (let i = 0; i < delayLength; i++) {
+    const white = Math.random() * 2 - 1;
+    prev = 0.8 * prev + 0.2 * white;
+    buffer[i] = (i < pickPos) ? prev : 0;
+  }
+
 
   let index = 0;
 
@@ -74,10 +98,15 @@ async function pluck(frequency) {
       (index + 1) % delayLength;
 
     // Basic Karplus-Strong filter
+    //const decay = 0.99;
+
+    //2. Lower notes need more sustain.
+    const decay = 0.994;
     const averaged =
-      0.996 *
-      0.5 *
-      (buffer[index] + buffer[nextIndex]);
+      decay *
+      //0.5 * (buffer[index] + buffer[nextIndex]);
+      // 3. This preserves more upper harmonics.
+      (0.8 * buffer[index] + 0.2 * buffer[nextIndex]);
 
     buffer[index] = averaged;
 
@@ -89,8 +118,15 @@ async function pluck(frequency) {
   const source =
     audioContext.createBufferSource();
 
+  // 4. Add a simple body resonance
+  const filter = audioContext.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 800;
+  filter.Q.value = 0.7;
+  //source.connect(audioContext.destination);
+  source.connect(filter);
+  filter.connect(audioContext.destination);
   source.buffer = audioBuffer;
-  source.connect(audioContext.destination);
   source.start();
 }
 </script>
