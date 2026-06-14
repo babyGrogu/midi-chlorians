@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Karplus-Strong Demo</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 2rem;
+    }
+
+    button {
+      font-size: 1.2rem;
+      margin: 0.25rem;
+      padding: 0.75rem 1rem;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Karplus–Strong Synth</h1>
+
+<button onclick="pluck(220)">A3</button>
+<button onclick="pluck(440)">A4</button>
+<button onclick="pluck(660)">E5</button>
+<button onclick="pluck(880)">A5</button>
+
+<script>
+let audioContext;
+
+async function ensureAudio() {
+  if (!audioContext) {
+    audioContext = new AudioContext();
+  }
+
+  if (audioContext.state !== "running") {
+    await audioContext.resume();
+  }
+}
+
+async function pluck(frequency) {
+  await ensureAudio();
+
+  const sampleRate = audioContext.sampleRate;
+
+  // Delay length determines pitch
+  const delayLength = Math.round(sampleRate / frequency);
+
+  // Initial burst of noise
+  const buffer = new Float32Array(delayLength);
+
+  for (let i = 0; i < delayLength; i++) {
+    buffer[i] = Math.random() * 2 - 1;
+  }
+
+  let index = 0;
+
+  const duration = 3.0;
+  const totalSamples = Math.floor(sampleRate * duration);
+
+  const audioBuffer =
+    audioContext.createBuffer(
+      1,
+      totalSamples,
+      sampleRate
+    );
+
+  const output = audioBuffer.getChannelData(0);
+
+  for (let i = 0; i < totalSamples; i++) {
+    const current = buffer[index];
+
+    const nextIndex =
+      (index + 1) % delayLength;
+
+    // Basic Karplus-Strong filter
+    const averaged =
+      0.996 *
+      0.5 *
+      (buffer[index] + buffer[nextIndex]);
+
+    buffer[index] = averaged;
+
+    output[i] = current;
+
+    index = nextIndex;
+  }
+
+  const source =
+    audioContext.createBufferSource();
+
+  source.buffer = audioBuffer;
+  source.connect(audioContext.destination);
+  source.start();
+}
+</script>
+
+</body>
+<script>
+/*
+What to experiment with
+Decay
+
+Change:
+
+0.996
+
+to:
+
+0.99
+
+or:
+
+0.9995
+
+Lower values make the string die faster.
+
+Brighter vs darker strings
+
+Replace:
+
+0.5 * (a + b)
+
+with:
+
+0.8 * a + 0.2 * b
+
+or:
+
+0.2 * a + 0.8 * b
+
+This changes the damping characteristics.
+
+Different excitation
+
+Instead of white noise:
+
+buffer[i] = Math.random() * 2 - 1;
+
+try:
+
+buffer[i] =
+  Math.sin(i * 0.3) *
+  (Math.random() * 2 - 1);
+
+or initialize only part of the buffer to simulate different pick positions.
+
+A more "real" implementation
+
+The example above pre-renders the entire note into an AudioBuffer. That's simple and easy to understand.
+
+A production-quality version would use:
+
+AudioWorklet
+Real-time generation
+Continuous voices
+Polyphony
+ADSR envelopes
+Body resonances
+
+But the core Karplus–Strong algorithm itself would remain almost exactly the same. The entire magic of the technique is that a few lines of feedback-buffer code produce a surprisingly convincing plucked-string sound.
+*/
+
+
+
+
+/*
+when playing with the code above it doesn't sound great for low frequencies. what parameters in the code above could i change to make it sound better for bass guitar type sounds
+
+
+That's a known limitation of the simplest Karplus–Strong implementation. At lower pitches (80–200 Hz), several artifacts become obvious:
+
+The excitation noise is too bright.
+The averaging filter damps harmonics unrealistically.
+The pitch tuning becomes inaccurate because of integer delay lengths.
+Real bass guitars have strong body resonances and nonuniform harmonic decay.
+
+A few modifications can make a dramatic difference.
+
+1. Use low-passed noise as the excitation
+
+Instead of:
+
+buffer[i] = Math.random() * 2 - 1;
+
+generate smoother noise:
+
+let prev = 0;
+
+for (let i = 0; i < delayLength; i++) {
+  const white = Math.random() * 2 - 1;
+
+  prev = 0.8 * prev + 0.2 * white;
+
+  buffer[i] = prev;
+}
+
+Bass strings are much less bright than a guitar pick hitting a thin string.
+
+2. Increase feedback
+
+The current code uses:
+
+0.996
+
+Try:
+
+0.998
+
+or
+
+0.999
+
+Lower notes need more sustain.
+
+Example:
+
+const decay = 0.999;
+const averaged =
+  decay * 0.5 *
+  (buffer[index] + buffer[nextIndex]);
+3. Use a weighted average
+
+Instead of:
+
+0.5 * (a + b)
+
+try:
+
+0.7 * a + 0.3 * b
+
+or
+
+0.8 * a + 0.2 * b
+
+This preserves more upper harmonics.
+
+const averaged =
+  decay *
+  (
+    0.8 * buffer[index] +
+    0.2 * buffer[nextIndex]
+  );
+
+This often sounds more "string-like."
+
+4. Add a simple body resonance
+
+This is probably the biggest improvement per line of code.
+
+After generating the note, pass it through a low-pass filter.
+
+const filter =
+  audioContext.createBiquadFilter();
+
+filter.type = "lowpass";
+filter.frequency.value = 2500;
+filter.Q.value = 0.7;
+
+source.connect(filter);
+filter.connect(audioContext.destination);
+
+For bass guitar, try:
+
+filter.frequency.value = 1200;
+
+or
+
+filter.frequency.value = 800;
+5. Simulate string stiffness
+
+The simple algorithm causes harmonics to decay too uniformly.
+
+A cheap improvement:
+
+const averaged =
+  decay *
+  (
+    0.6 * buffer[index] +
+    0.4 * buffer[nextIndex]
+  );
+
+followed by another one-pole filter:
+
+lastOutput =
+  0.7 * lastOutput +
+  0.3 * averaged;
+
+This gives a more natural decay.
+
+6. Pick position matters a lot
+
+Real basses don't excite the entire string equally.
+
+Instead of filling the whole buffer with noise:
+
+for (let i = 0; i < delayLength; i++) {
+  buffer[i] = random();
+}
+
+excite only part of it:
+
+const pickPos = Math.floor(delayLength * 0.15);
+
+for (let i = 0; i < delayLength; i++) {
+  buffer[i] =
+    i < pickPos
+      ? Math.random() * 2 - 1
+      : 0;
+}
+
+This suppresses some harmonics and often sounds more realistic.
+
+7. Add a tiny attack envelope
+
+Real bass strings don't start at full amplitude instantly.
+
+After generating the output sample:
+
+const attackSamples =
+  sampleRate * 0.005;
+
+const attack =
+  Math.min(1, i / attackSamples);
+
+output[i] = current * attack;
+
+A 5–10 ms attack can reduce the harshness.
+
+The single biggest upgrade: fractional delay
+
+The most important technical issue for low notes is that:
+
+Math.round(sampleRate / frequency)
+
+forces the pitch to an integer number of samples.
+
+For example, 82.41 Hz (low E on a bass) requires:
+
+44100 / 82.41 = 535.13 samples
+
+but your code uses:
+
+535 samples
+
+This causes tuning and timbral errors.
+
+More advanced Karplus–Strong implementations use:
+
+fractional delay lines
+linear interpolation
+all-pass interpolation
+
+to allow delays like:
+
+535.13 samples
+
+instead of:
+
+535 samples
+
+This is one of the biggest reasons professional physical-modeling basses sound much better than toy implementations.
+
+A good "bass preset"
+
+Try:
+
+const decay = 0.9993;
+
+const averaged =
+  decay *
+  (
+    0.8 * buffer[index] +
+    0.2 * buffer[nextIndex]
+  );
+
+with:
+
+low-passed excitation noise
+excitation only in the first 10–20% of the buffer
+a low-pass filter around 800–1200 Hz on the output
+
+Those four changes alone can make the result sound noticeably closer to an electric bass rather than a generic plucked string.
+*/
+
+
+
+/*
+The low E on a bass guitar is around 41.2 hz, not 82.4 (that would be the low E on a regular 6 string guiter).  How much would the tuning be off for the above unchanged code for say A1 at 55 hz?
+
+You're absolutely right—I mistakenly gave the low E of a guitar (E2 ≈ 82.4 Hz), not the low E of a bass (E1 ≈ 41.2 Hz).
+
+For A1 = 55 Hz, let's see how much error the simple implementation introduces.
+
+The code computes:
+
+delayLength = Math.round(sampleRate / frequency)
+
+Assuming a 44.1 kHz sample rate:
+
+44100 / 55 = 801.818...
+
+The code rounds this to:
+
+802 samples
+
+The actual frequency produced is approximately:
+
+44100 / 802 = 54.9875 Hz
+
+Error:
+
+54.9875 - 55 = -0.0125 Hz
+
+That's only about:
+
+-0.023%
+
+or roughly:
+
+1200 * log2(54.9875 / 55)
+≈ -0.39 cents
+
+Less than half a cent—essentially inaudible.
+
+So why do low notes still sound "off"?
+
+The interesting thing is that the pitch error is usually not the main problem.
+
+For low notes, the bigger issues are:
+
+1. The averaging filter shifts the effective delay
+
+The classic update:
+
+0.5 * (buffer[index] + buffer[nextIndex])
+
+acts as a low-pass filter whose phase response effectively adds about half a sample of delay.
+
+This means the actual pitch isn't exactly:
+
+sampleRate / N
+
+but closer to:
+
+sampleRate / (N + 0.5)
+
+For A1:
+
+44100 / (802.5)
+≈ 54.95 Hz
+
+Now the error is:
+
+-1.6 cents
+
+Still small, but noticeably larger than the pure integer-rounding error.
+
+Many Karplus–Strong implementations compensate by using:
+
+frequency = sampleRate / (N + 0.5)
+
+when calculating the delay length.
+
+2. Harmonics are damped too aggressively
+
+At 55 Hz, the first few harmonics are:
+
+55
+110
+165
+220
+275
+...
+
+The simple averaging filter suppresses upper harmonics every time the signal circulates.
+
+The result is often perceived as:
+
+dull
+tubby
+synthetic
+
+rather than "out of tune."
+
+3. Real bass strings are not ideal strings
+
+A real bass has:
+
+string stiffness
+magnetic pickup coloration
+body resonance
+fret noise
+attack transients
+
+The simple algorithm has none of these, so the ear hears "wrong timbre" and often interprets it as "wrong pitch."
+
+How bad does integer quantization get?
+
+The maximum error from rounding to the nearest sample is approximately:
+
+0.5 / N
+
+At A1:
+
+0.5 / 802
+≈ 0.00062
+
+which corresponds to about:
+
+1.1 cents worst case
+
+and in this particular case it's only about 0.4 cents.
+
+At the bass low E:
+
+44100 / 41.2
+≈ 1070 samples
+
+the quantization error is even smaller because the delay line is longer.
+
+Bottom line
+
+For notes around 40–60 Hz, integer delay length itself is not the major source of audible error. The simple Karplus–Strong algorithm sounds weak in the bass mostly because of the crude feedback filter and lack of resonances, not because the frequency is badly tuned.
+
+If you want the biggest improvement for bass notes, I'd prioritize:
+
+Better excitation (low-passed noise).
+A more realistic feedback filter than simple averaging.
+A body/pickup resonance filter after the string.
+Only then fractional-delay tuning.
+
+Fractional delay is important, but for a bass guitar model it's often the fourth or fifth thing you'd improve rather than the first.
+*/
+</script>
+</html>
