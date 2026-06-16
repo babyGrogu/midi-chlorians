@@ -75,6 +75,7 @@ const FUNC_DESC = 'DESC';
 
 const RUN_MODE_CNR = 'C&R';
 const RUN_MODE_OLDSTYLE = 'OLDSTYLE';
+const RUN_MODE_STARTED_DETECTING = 'START_DET';
 
 // keep defaultState to one level of nested objects so the localStorage of ui settings will work
 const defaultState = {
@@ -151,29 +152,6 @@ window.onload = function () {
   initKonva(initialState.key);
 }
 
-function inspectAudio(stream) {
-  //async function inspectAudio() {}
-  //const stream = await navigator.mediaDevices.getUserMedia({
-  //  audio: true
-  //});
-
-  const track = stream.getAudioTracks()[0];
-
-  console.log('TRACK:', track);
-
-  console.log('Requested Constraints:');
-  console.log(track.getConstraints());
-
-  console.log('Actual Settings:');
-  console.log(track.getSettings());
-
-  // Not supported in all browsers
-  if (track.getCapabilities) {
-    console.log('Capabilities:');
-    console.log(track.getCapabilities());
-  }
-}
-
 async function startAudioListening() {
 
   // no input
@@ -184,15 +162,10 @@ async function startAudioListening() {
 
   async function gotStream(stream) {
 
-
     // Resume context if browser suspended it
     if (audioContext.state === 'suspended') {
       await audioContext.resume();
     }
-
-    //inspectAudio(stream);
-
-    console.info('got stream');
 
     mediaStreamSource = audioContext.createMediaStreamSource(stream);
 
@@ -358,11 +331,10 @@ function updatePitch() {
 	 	hertzElem.innerText = Math.round( noteFreq ) ;
 
     // this is our test range for respond
-    if (rcs.runMode 
+    if (rcs.runMode === RUN_MODE_CNR
         && notesMinimum[trigger].f <= noteFreq
         && noteFreq < notesMinimum[trigger+1].f
         && ! rcs.detectedTrigger) {
-      console.log('B0 seen');
       beepBeep();
       respondFake();
     }
@@ -374,7 +346,7 @@ function updatePitch() {
     ) {
       const noteDetected = binarySearch(noteFreq);
       if (noteDetected) {
-        if (rcs.detectedDisplay) {
+        if (!rcs.hide) {
 	 	      //const note = noteFromPitch( noteFreq );
       		//noteElem.innerHTML = NOTES[note%12];
           noteElem.innerHTML = getLabelForNote(noteDetected.n) + ' ' + noteDetected.l;
@@ -390,7 +362,7 @@ function updatePitch() {
               detectedThresholdCnt = 0;
               releaseNoteAtTarget();
               if (rcs.runMode === RUN_MODE_CNR) {
-                dispatchRef({command: CMD_SET_DETECTED, detectedDisplay: false});
+                dispatchRef({command: CMD_SET_DISPLAY_DETECTED, detectedDisplay: false});
                 dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: false});
               }
             }
@@ -399,10 +371,12 @@ function updatePitch() {
         if (rcs.hide) {
           detectedEle.innerHTML = '';
         }
-        else if (rcs.detectedDisplay) {
-          detectedEle.innerHTML = 'Detected: ' + detectedThresholdCnt + thresh;
-        } else {
-          detectedEle.innerHTML = 'Press Respond when ready';
+        else if (rcs.runMode !== RUN_MODE_STARTED_DETECTING) {
+          if (rcs.detectedDisplay) {
+            detectedEle.innerHTML = 'Detected: ' + detectedThresholdCnt + thresh;
+          } else {
+            detectedEle.innerHTML = 'Press Respond when ready';
+          }
         }
       } else {
         console.warn('noteDetected not found: noteFreq=' + noteFreq);
@@ -723,7 +697,11 @@ function calcIntervalFreq(freq, distanceOfNotesInKey) {
 // TODO: ask ai how to use keyboard listeners with react and dispatch
 //       remove this init if keyboard listeners work with react
 function initIt() {
+  if (inited) {
+    return;
+  }
   inited = true;
+  const audioStatus = startAudioListening();
   startKeyBoardListening();
 }
 
@@ -731,11 +709,8 @@ function startAnimation() {
   if (!inited) {
     initIt();
   }
-  const status = startAudioListening();
-  if (status) {
-    if (! animateRoll.isRunning()) {
-      animateRoll.start();
-    }
+  if (! animateRoll.isRunning()) {
+    animateRoll.start();
   }
 }
 
@@ -755,7 +730,7 @@ function stopIt() {
 }
 
 function respondFake() {
-  dispatchRef({command: CMD_SET_DETECTED, detectedDisplay: true});
+  dispatchRef({command: CMD_SET_DISPLAY_DETECTED, detectedDisplay: true});
   dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: true});
   respond();
 }

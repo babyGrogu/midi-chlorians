@@ -27,7 +27,8 @@ const CMD_SET_LOOP_PLAY_TIME = 'LOOP_PLAY_TIME';
 const CMD_SET_LOOP_PAUSE_TIME = 'LOOP_PAUSE_TIME';
 const CMD_SET_RANGE_LOW = 'RANGE_LOW';
 const CMD_SET_RANGE_HIGH = 'RANGE_HIGH';
-const CMD_SET_DETECTED = 'DETECTED';
+const CMD_SET_DISPLAY_DETECTED = 'DISPLAY_DETECTED';
+const CMD_SET_START_DETECTING = 'START_DETECTING';
 const CMD_SET_DETECTED_TRIGGER = 'DETECTED_TRIGGER';
 const CMD_SET_DETECTED_TRIGGER_THRESHOLD = 'DETECTED_TRIGGER_THRESHOLD';
 const CMD_SET_BEEP = 'BEEP';
@@ -155,6 +156,11 @@ function controlsReducer(state, action) {
         detectedDisplay: false,
         detectedTrigger: false
       };
+    case (CMD_SET_START_DETECTING):
+      initIt();
+      return {...state,
+        runMode: RUN_MODE_STARTED_DETECTING,
+      };
     case (CMD_SET_RM_OLDSTYLE):
       startAnimation();
       return {...state,
@@ -216,7 +222,7 @@ function controlsReducer(state, action) {
       return {...state, loopPlayTime: action.loopPlayTime};
     case (CMD_SET_LOOP_PAUSE_TIME):
       return {...state, loopPauseTime: action.loopPauseTime};
-    case (CMD_SET_DETECTED):
+    case (CMD_SET_DISPLAY_DETECTED):
       return {...state, detectedDisplay: action.detectedDisplay };
     case (CMD_SET_DETECTED_TRIGGER):
       return {...state, detectedTrigger: action.detectedTrigger };
@@ -398,7 +404,7 @@ const Controls = (props) => {
         <span>
           <input type="checkbox" id="detectedDisplay" checked={rcs.detectedDisplay} disabled={rcs.input === NONE} onChange={e =>
             dispatch({
-              command: CMD_SET_DETECTED,
+              command: CMD_SET_DISPLAY_DETECTED,
               detectedDisplay: e.currentTarget.checked,
               target: e.currentTarget,
             })
@@ -589,6 +595,13 @@ const Controls = (props) => {
       <div className="vertSpacer"></div>
       <div className="vertSpacer"></div>
 
+      <div>
+        <button onClick={e => dispatch({
+          command: CMD_SET_START_DETECTING,
+          target: e.currentTarget
+        })}>Turn on Note Detecting</button>
+      </div>
+      <div className="vertSpacer"></div>
       <div>
         <button onClick={e => dispatch({
           command: CMD_SET_RM_OLDSTYLE,
