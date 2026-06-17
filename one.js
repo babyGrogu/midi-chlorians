@@ -103,8 +103,8 @@ const defaultState = {
   beep: false,
   func: FUNC_RANDO,
   skip: {},
-  runMode: false,
 };
+let runMode = false;
 let initialState;
 let notesActualInKeyForRange = [];
 
@@ -153,12 +153,6 @@ window.onload = function () {
 }
 
 async function startAudioListening() {
-
-  // no input
-  if (rcs.input === NONE) {
-    alert('no input selected');
-    return false;
-  }
 
   async function gotStream(stream) {
 
@@ -230,9 +224,7 @@ async function startAudioListening() {
   } catch (err) {
     console.error(`${err.name}: ${err.message}`);
     alert('Stream generation failed.');
-    return false;
   }
-  return true;
 }
 
 function noteFromPitch( frequency ) {
@@ -331,7 +323,7 @@ function updatePitch() {
 	 	hertzElem.innerText = Math.round( noteFreq ) ;
 
     // this is our test range for respond
-    if (rcs.runMode === RUN_MODE_CNR
+    if (runMode === RUN_MODE_CNR
         && notesMinimum[trigger].f <= noteFreq
         && noteFreq < notesMinimum[trigger+1].f
         && ! rcs.detectedTrigger) {
@@ -340,7 +332,7 @@ function updatePitch() {
     }
 
     // if the frequency seen is in our UI set range limits...
-    if (rcs.runMode
+    if (runMode
       && notesMinimum[0].f <= noteFreq
       && noteFreq < notesActual[notesActual.length-1].f
     ) {
@@ -354,14 +346,14 @@ function updatePitch() {
 
         const firstUnplayedNote = findFirstUnplayedNote();
 
-        if (rcs.detectedDisplay && rcs.detectedTrigger) {
+        if (firstUnplayedKonvaNoteInTarget() && rcs.detectedDisplay && rcs.detectedTrigger) {
           if (firstUnplayedNote && noteDetected.n === firstUnplayedNote.n &&
               (rcs.octEq ? true : noteDetected.l === firstUnplayedNote.l)) {
             if (rcs.detectedTrigger) detectedThresholdCnt++;
             if (rcs.detectedTrigger && detectedThresholdCnt >= rcs.detectedTriggerThreshold) {
               detectedThresholdCnt = 0;
               releaseNoteAtTarget();
-              if (rcs.runMode === RUN_MODE_CNR) {
+              if (runMode === RUN_MODE_CNR) {
                 dispatchRef({command: CMD_SET_DISPLAY_DETECTED, detectedDisplay: false});
                 dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: false});
               }
@@ -371,7 +363,7 @@ function updatePitch() {
         if (rcs.hide) {
           detectedEle.innerHTML = '';
         }
-        else if (rcs.runMode !== RUN_MODE_STARTED_DETECTING) {
+        else if (runMode !== RUN_MODE_STARTED_DETECTING) {
           if (rcs.detectedDisplay) {
             detectedEle.innerHTML = 'Detected: ' + detectedThresholdCnt + thresh;
           } else {
@@ -697,17 +689,26 @@ function calcIntervalFreq(freq, distanceOfNotesInKey) {
 // TODO: ask ai how to use keyboard listeners with react and dispatch
 //       remove this init if keyboard listeners work with react
 function initIt() {
+
   if (inited) {
-    return;
+    return true;
   }
+
+  // no input
+  if (rcs.input === NONE) {
+    alert('no input selected');
+    return false;
+  }
+
   inited = true;
-  const audioStatus = startAudioListening();
+  startAudioListening();
   startKeyBoardListening();
 }
 
 function startAnimation() {
   if (!inited) {
-    initIt();
+    const r = initIt();
+    if (!r) return; // don't start animation
   }
   if (! animateRoll.isRunning()) {
     animateRoll.start();

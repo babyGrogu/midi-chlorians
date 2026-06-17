@@ -480,6 +480,15 @@ function findFirstUnplayedKonvaNote() {
   return null;
 }
 
+function firstUnplayedKonvaNoteInTarget() {
+  const kn = findFirstUnplayedKonvaNote();
+  // roll keeps going to the left and becomes a large negative
+  const knx = roll.getAttr('x') + kn.x();
+  if (targetX-targetZoneWidth/2 < knx && knx < targetX+targetZoneWidth/2)
+    return true;
+  return false;
+}
+
 function findFirstUnplayedNote() {
   const kn = findFirstUnplayedKonvaNote();
   return (kn) ? kn.getAttr(ATTR_NOTE) : null;

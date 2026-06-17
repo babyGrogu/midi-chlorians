@@ -29,6 +29,7 @@ const CMD_SET_RANGE_LOW = 'RANGE_LOW';
 const CMD_SET_RANGE_HIGH = 'RANGE_HIGH';
 const CMD_SET_DISPLAY_DETECTED = 'DISPLAY_DETECTED';
 const CMD_SET_START_DETECTING = 'START_DETECTING';
+const CMD_SET_SHOW_DETECTED_NOTEK = 'SHOW_DETECTED_NOTEK';
 const CMD_SET_DETECTED_TRIGGER = 'DETECTED_TRIGGER';
 const CMD_SET_DETECTED_TRIGGER_THRESHOLD = 'DETECTED_TRIGGER_THRESHOLD';
 const CMD_SET_BEEP = 'BEEP';
@@ -132,8 +133,8 @@ function controlsReducer(state, action) {
   switch(action.command) {
     case (CMD_SET_RM_CNR):
       startAnimation();
+      runMode = RUN_MODE_CNR;
       return {...state,
-        runMode: RUN_MODE_CNR,
         detectedDisplay: false,
         detectedTrigger: false
       };
@@ -151,20 +152,22 @@ function controlsReducer(state, action) {
       return newState;
     case (CMD_STOP):
       stopIt();
+      runMode = false;;
       return {...state,
-        runMode: false,
         detectedDisplay: false,
         detectedTrigger: false
       };
     case (CMD_SET_START_DETECTING):
-      initIt();
-      return {...state,
-        runMode: RUN_MODE_STARTED_DETECTING,
-      };
+    case (CMD_SET_SHOW_DETECTED_NOTEK):
+      const ok = initIt();
+      if (ok) {
+        runMode = RUN_MODE_STARTED_DETECTING; forceReactUpdateTrick();
+      }
+      return state;
     case (CMD_SET_RM_OLDSTYLE):
       startAnimation();
+      runMode = RUN_MODE_OLDSTYLE;
       return {...state,
-        runMode: RUN_MODE_OLDSTYLE,
         detectedDisplay: true,
         detectedTrigger: true
       };
@@ -600,6 +603,7 @@ const Controls = (props) => {
           command: CMD_SET_START_DETECTING,
           target: e.currentTarget
         })}>Turn on Note Detecting</button>
+        <span className="horizSpacer"></span>
       </div>
       <div className="vertSpacer"></div>
       <div>
