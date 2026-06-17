@@ -561,8 +561,8 @@ function generateRandomNote() {
   let available = [...notesActualInKeyForRange];
   available = filterUserChosenNotes(available);
 
-  // remove the last note to keep it interesting
-  if (lastNoteGenerated.n !== -1) {
+  // notes should not be repeated, remove previous generated note
+  if (lastNoteGenerated.n !== -1 && available.length > 1) {
     const ind = available.findIndex(n => n.i === lastNoteGenerated.i);
     available.splice(ind, 1);
   }
