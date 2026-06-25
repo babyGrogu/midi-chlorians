@@ -158,12 +158,18 @@ function controlsReducer(state, action) {
         detectedTrigger: false
       };
     case (CMD_SET_START_DETECTING):
-    case (CMD_SET_SHOW_DETECTED_NOTEK):
       const ok = initIt();
       if (ok) {
         runMode = RUN_MODE_STARTED_DETECTING; forceReactUpdateTrick();
       }
       return state;
+    case (CMD_SET_SHOW_DETECTED_NOTEK):
+       if (!action.detectedShowKonvaNote) {
+         hideDetectedKonvaNote();
+       }
+      return {...state,
+        detectedShowKonvaNote: action.detectedShowKonvaNote
+      };
     case (CMD_SET_RM_OLDSTYLE):
       startAnimation();
       runMode = RUN_MODE_OLDSTYLE;
@@ -356,7 +362,7 @@ const Controls = (props) => {
             })
           }
         >{ renderNoteRangeForSelector(true) }</select>
-        <label> lowest note </label>
+        <label>Lowest note</label>
         <span className="horizSpacer"></span>
         <select id="selectHigh" value={rcs.rangeHigh}
           onChange={e =>
@@ -367,7 +373,7 @@ const Controls = (props) => {
             })
           }
         >{ renderNoteRangeForSelector(false) }</select>
-        <label> highest note </label>
+        <label>Highest note</label>
       </div>
       <div className="vertSpacer"></div>
 
@@ -400,7 +406,7 @@ const Controls = (props) => {
           <option value="mic">Microphone</option>
           <option value="cable">KATANA GO (USB cable)</option>
         </select>
-        <label> input </label>
+        <label>Input</label>
       </div>
 
       <div>
@@ -412,7 +418,7 @@ const Controls = (props) => {
               target: e.currentTarget,
             })
           }/>
-          <label htmlFor="detectedDisplay">display note detected count</label>
+          <label htmlFor="detectedDisplay">Display note detected count</label>
         </span>
         <span>
           <input type="checkbox" id="detectedTrigger" checked={rcs.detectedTrigger} disabled={rcs.input === NONE} onChange={e =>
@@ -428,7 +434,7 @@ const Controls = (props) => {
               detectedTriggerThreshold: parseInt(e.currentTarget.value,10),
             })
           }/>
-          <label htmlFor="detectedTriggerThreshold"> {rcs.detectedTriggerThreshold} note detected release threshold</label>
+          <label htmlFor="detectedTriggerThreshold"> {rcs.detectedTriggerThreshold} Note detected release threshold</label>
         </span>
       </div>
       <div>
@@ -449,7 +455,7 @@ const Controls = (props) => {
             target: e.currentTarget,
           })
         }/>
-        <label htmlFor="amp"> Send input from USB cable to computer audio output</label>
+        <label htmlFor="amp">Send input from USB cable or Microphone to computer audio output</label>
       </div>
 
       <div className="vertSpacer"></div>
@@ -462,7 +468,7 @@ const Controls = (props) => {
             target: e.currentTarget,
           })
         }/>
-        <label htmlFor="tone"> Play sound of chord / arpeggio when note reaches the target </label>
+        <label htmlFor="tone">Play sound of chord / arpeggio when note reaches the target</label>
 
         <input type="checkbox" id="beep" checked={rcs.beep} onChange={e =>
           dispatch({
@@ -471,7 +477,7 @@ const Controls = (props) => {
             target: e.currentTarget,
           })
         }/>
-        <label htmlFor="beep"> Beep when note released </label>
+        <label htmlFor="beep">Beep when note released</label>
       </div>
 
       <div>
@@ -483,7 +489,7 @@ const Controls = (props) => {
             target: e.currentTarget,
           })
         }/>
-        <label htmlFor="octHigher"> Play notes an octave higher </label>
+        <label htmlFor="octHigher">Play notes an octave higher</label>
       </div>
 
       <div>
@@ -511,7 +517,7 @@ const Controls = (props) => {
           <span className="horizSpacer"></span>
           <span className="horizSpacer"></span>
           <input type="checkbox" id="tone1" checked={true} disabled={true}/>
-          <label htmlFor="tone1">root </label>
+          <label htmlFor="tone1">Root</label>
 
           <input type="checkbox" id="tone3" checked={rcs.tone3} disabled={!rcs.tone} onChange={e =>
             dispatch({
@@ -520,7 +526,7 @@ const Controls = (props) => {
               target: e.currentTarget,
             })
           }/>
-          <label htmlFor="tone3">third </label>
+          <label htmlFor="tone3">Third</label>
 
           <input type="checkbox" id="tone5" checked={rcs.tone5} disabled={!rcs.tone} onChange={e =>
             dispatch({
@@ -529,7 +535,7 @@ const Controls = (props) => {
               target: e.currentTarget,
             })
           }/>
-          <label htmlFor="tone5">fifth </label>
+          <label htmlFor="tone5">Fifth</label>
 
           <input type="checkbox" id="tone7" checked={rcs.tone7} disabled={!rcs.tone} onChange={e =>
             dispatch({
@@ -538,7 +544,7 @@ const Controls = (props) => {
               target: e.currentTarget,
             })
           }/>
-          <label htmlFor="tone7">seventh </label>
+          <label htmlFor="tone7">Seventh</label>
         </div>
       </div>
 
@@ -550,7 +556,7 @@ const Controls = (props) => {
             loops: parseInt(e.currentTarget.value,10),
           })
         }/>
-        <label htmlFor="loops"> {rcs.loops > 1 && loopsCtr > 0 ? loopsCtr + '/' : ''}{rcs.loops} loops </label>
+        <label htmlFor="loops"> {rcs.loops > 1 && loopsCtr > 0 ? loopsCtr + '/' : ''}{rcs.loops} Loops</label>
 
         <span className="horizSpacer"></span>
 
@@ -560,7 +566,7 @@ const Controls = (props) => {
             loopPlayTime: parseInt(e.currentTarget.value,10),
           })
         } step="10"/>
-        <label htmlFor="loopPlayTime"> {rcs.loopPlayTime} loop play time</label>
+        <label htmlFor="loopPlayTime"> {rcs.loopPlayTime} Loop play time</label>
 
         <span className="horizSpacer"></span>
 
@@ -571,7 +577,7 @@ const Controls = (props) => {
             loopPauseTime: parseInt(e.currentTarget.value,10),
           })
         } step="10"/>
-        <label htmlFor="loopPauseTime"> {rcs.loopPauseTime} pause between loops</label>
+        <label htmlFor="loopPauseTime"> {rcs.loopPauseTime} Pause between loops</label>
       </div>
 
       <div className="vertSpacer"></div>
@@ -583,7 +589,7 @@ const Controls = (props) => {
               command: CMD_SET_VELOCITY,
               vel: parseInt(e.currentTarget.value,10),
             })} />
-        <label htmlFor="velocity">{rcs.animationVelocity} staff note speed </label>
+        <label htmlFor="velocity">{rcs.animationVelocity} Staff note speed </label>
       </div>
       <div>
         <input type="checkbox" id="hide" checked={rcs.hide} onChange={e => dispatch({
@@ -602,15 +608,25 @@ const Controls = (props) => {
         <button onClick={e => dispatch({
           command: CMD_SET_START_DETECTING,
           target: e.currentTarget
-        })}>Turn on Note Detecting</button>
+        })}>Turn on note detection</button>
         <span className="horizSpacer"></span>
+        <input type="checkbox" id="showDetectedKonvaNote"
+          checked={rcs.detectedShowKonvaNote}
+          disabled={!runMode}
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_SHOW_DETECTED_NOTEK,
+              detectedShowKonvaNote: e.currentTarget.checked,
+              target: e.currentTarget,
+            })
+          }/><label htmlFor="showDetectedKonvaNote">Show detected konva note</label>
       </div>
       <div className="vertSpacer"></div>
       <div>
         <button onClick={e => dispatch({
           command: CMD_SET_RM_OLDSTYLE,
           target: e.currentTarget
-        })}>Old Style</button>
+        })}>Old style</button>
       </div>
       <div className="vertSpacer"></div>
       <div>

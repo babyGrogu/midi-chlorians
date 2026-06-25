@@ -20,7 +20,6 @@ const noteStrokeWidth = 3;
 const lineStrokeWidth = 2;
 const lineStrokeColor = 'black';
 const noteColor = 'black';
-const staffColor = 'green';
 const staffLineSegmentLength = noteRadiusY*2;
 const noteStemSpacing = 3; // in units of the lineSpacing variable
 const targetPercent = 34;
@@ -37,7 +36,7 @@ const ATTR_TYPE_NOTE = 'TYPE_NOTE';
 const ATTR_ACCIDENTAL = 'ACCIDENTAL';
 
 
-let quarterNote, quarterNoteFlipped, quarterNoteFlippedG, quarterNoteFlippedF,quarterNoteFlippedE, quarterNoteFlippedD, quarterNoteFlippedC, quarterNoteE, quarterNoteD, quarterNoteC, quarterNoteB, tooltip, animateNoteFunction;
+let quarterNoteHead, quarterNote, quarterNoteFlipped, quarterNoteFlippedG, quarterNoteFlippedF,quarterNoteFlippedE, quarterNoteFlippedD, quarterNoteFlippedC, quarterNoteE, quarterNoteD, quarterNoteC, quarterNoteB, tooltip, animateNoteFunction, detNoteGrp, staffLineSegment;
 let roll, measure, hiddenTic, sharp, flat, natural, keySig = [], beatCtr = 0, targetX, targetZoneWidth, lastNoteGenerated = {n:-1}; 
 
 // create staff
@@ -125,7 +124,7 @@ function initKonva(initialStateKey) {
 function createAndCacheElements() {
 
   // ellipse's ORIGIN/offset/center is the middle of the ellipse
-  const quarterNoteHead = new Konva.Ellipse({
+  quarterNoteHead = new Konva.Ellipse({
     radiusX: noteRadiusX,
     radiusY: noteRadiusY,
     fill: 'black', // set fill to 'white' for half notes
@@ -162,7 +161,7 @@ function createAndCacheElements() {
   quarterNoteFlipped.add(quarterNoteStemFlipped);
   quarterNoteFlipped.cache();
 
-  const staffLineSegment = new Konva.Line({
+  staffLineSegment = new Konva.Line({
     points: [-staffLineSegmentLength, 0,
               staffLineSegmentLength, 0],
     stroke: lineStrokeColor,
@@ -402,9 +401,8 @@ function renderNoteAndMeasures(note) {
     let idx = noteNamesInKey.findIndex(n => n === note.n);
     // if note is not in the key then need to figure out which accidental to use
     if (idx === -1) {
-      const c2 = note.n[1];
       const label = getLabelForNote(note.n);
-      if (label.length == 2) { // label is a sharp or flat and not in key
+      if (label.length === 2) { // label is a sharp or flat and not in key
         const accType = (label[1] === '#') ? sharp : flat;
         accidentalK = accType.clone({
           x: noteInsertionPoint - 60 , // flat & sharp offset
@@ -482,6 +480,9 @@ function findFirstUnplayedKonvaNote() {
 
 function firstUnplayedKonvaNoteInTarget() {
   const kn = findFirstUnplayedKonvaNote();
+  // if runMode STATED_DETECTION is on first there are no notes
+  // when user starts Old style or Call run modes
+  if (!kn) return false;
   // roll keeps going to the left and becomes a large negative
   const knx = roll.getAttr('x') + kn.x();
   if (targetX-targetZoneWidth/2 < knx && knx < targetX+targetZoneWidth/2)
@@ -718,6 +719,145 @@ function getStaffLine(note, keyIndex) {
   }
   return 0;
 }
+
+/* test for renderDetectedKonvaNote
+setTimeout(() => {
+  for (let i=0,j=0; i<38; i++,j++) {  // bottom is 0-10, top is 25-38
+    setTimeout(() => renderDetectedKonvaNote(notesMinimum[i]), j*420);
+  }
+}, 1000);
+*/
+function renderDetectedKonvaNote(noteDet) {
+  function hide(...lines) {lines.forEach( l => l.setAttr('visible', false)); }
+  function show(...lines) {lines.forEach( l => l.setAttr('visible', true)); }
+  function createSls(id, line) {
+    return staffLineSegment.clone({
+      id,
+      visible: false,
+      stroke: clr,
+      points: [-staffLineSegmentLength, lineSpacing * line,
+                staffLineSegmentLength, lineSpacing * line],
+    });
+  }
+
+  if (!noteDet || noteDet.i < 2 || noteDet.i > 35) {
+    if (detNoteGrp) hide(detNoteGrp);
+    return;
+  } else {
+    if (detNoteGrp) show(detNoteGrp);
+  }
+
+  const clr = 'red';
+  const gsl = getStaffLine(noteDet, rcs.key);
+  const ndy = lineSpacing * gsl/2;
+  let qnhGrp, qnh, slsG3, slsE3, slsC3, slsE1, slsC1, accSharp, accFlat, accNatural;
+  //console.log(noteDet.n + ' ' + noteDet.l + ' ' + gsl + ' ' + ndy);
+
+  if (! detNoteGrp) {
+    detNoteGrp = new Konva.Group({
+      x: targetX,
+      y: topLine,
+    });
+
+    qnhGrp = new Konva.Group({ id: 'qnhGrp' });
+    detNoteGrp.add(qnhGrp);
+    qnh = quarterNoteHead.clone({
+      fill: clr,
+      strokeWidth: 1, 
+    });
+    qnhGrp.add(qnh);
+
+    accSharp = sharp.clone({
+      id: 'accSharp',
+      x: -60,
+      y: -68,
+      fill: clr,
+      visible: false,
+    });
+    qnhGrp.add(accSharp);
+
+    accFlat = flat.clone({
+      id: 'accFlat',
+      x: -60,
+      y: -68,
+      fill: clr,
+      visible: false,
+    });
+    qnhGrp.add(accFlat);
+
+    accNatural = natural.clone({
+      id: 'accNatural',
+      x: -15,
+      y: -16,
+      fill: clr,
+      visible: false,
+    });
+    qnhGrp.add(accNatural);
+
+    slsG3 = createSls('slsG3', 0); detNoteGrp.add(slsG3);
+    slsE3 = createSls('slsE3', 1); detNoteGrp.add(slsE3);
+    slsC3 = createSls('slsC3', 2); detNoteGrp.add(slsC3);
+    slsC1 = createSls('slsE1', 8); detNoteGrp.add(slsC1);
+    slsE1 = createSls('slsC1', 9); detNoteGrp.add(slsE1);
+
+    layer.add(detNoteGrp);
+  }
+
+  qnhGrp = detNoteGrp.findOne('#qnhGrp');
+  accSharp = detNoteGrp.findOne('#accSharp');
+  accFlat = detNoteGrp.findOne('#accFlat');
+  accNatural = detNoteGrp.findOne('#accNatural');
+  slsG3 = detNoteGrp.findOne('#slsG3');
+  slsE3 = detNoteGrp.findOne('#slsE3');
+  slsC3 = detNoteGrp.findOne('#slsC3');
+  slsC1 = detNoteGrp.findOne('#slsC1');
+  slsE1 = detNoteGrp.findOne('#slsE1');
+  slsE1 = detNoteGrp.findOne('#slsE1');
+
+  if (4 < gsl && gsl < 16) {
+    hide(slsG3, slsE3, slsC3, slsE1, slsC1);
+  } else if (gsl === 0) {
+    show(slsG3, slsE3, slsC3);
+    hide(slsC1, slsE1);
+  } else if (gsl === 1 || gsl === 2) {
+    show(slsE3, slsC3);
+    hide(slsG3, slsC1, slsE1);
+  } else if (gsl === 3 || gsl === 4) {
+    show(slsC3);
+    hide(slsG3, slsE3, slsC1, slsE1);
+  } else if (gsl === 16 || gsl === 17) {
+    show(slsE1);
+    hide(slsG3, slsE3, slsC3, slsC1);
+  } else if (gsl === 18 || gsl === 19) {
+    show(slsE1, slsC1);
+    hide(slsG3, slsE3, slsC3);
+  } else {
+    show(slsG3, slsE3, slsC3, slsC1, slsE1);
+  }
+  qnhGrp.setY(ndy);
+
+  // see similar code in renderNoteAndMeasures
+  let idx = noteNamesInKey.findIndex(n => n === noteDet.n);
+  // if note is not in the key then need to figure out which accidental to use
+  if (idx === -1) {
+    const label = getLabelForNote(noteDet.n);
+    if (label.length === 2) { // label is a sharp or flat and not in key
+      const acc = (label[1] === '#') ? accSharp : accFlat;
+      acc.setAttr('visible', true);
+    } else {
+      accNatural.setAttr('visible', true);
+    }
+  } else {
+    // if note is in key then hide acc
+    accSharp.setAttr('visible', false);
+    accFlat.setAttr('visible', false);
+    accNatural.setAttr('visible', false);
+  }
+}
+function hideDetectedKonvaNote() {
+  detNoteGrp.setAttr('visible', false);
+}
+
 
 const animateRoll = new Konva.Animation(function (frame) {
 

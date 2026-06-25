@@ -100,6 +100,7 @@ const defaultState = {
   detectedDisplay: false,
   detectedTriggerThreshold: 23,
   detectedTrigger: false,
+  detectedShowKonvaNote: false,
   beep: false,
   func: FUNC_RANDO,
   skip: {},
@@ -346,17 +347,21 @@ function updatePitch() {
 
         const firstUnplayedNote = findFirstUnplayedNote();
 
-        if (firstUnplayedKonvaNoteInTarget() && rcs.detectedDisplay && rcs.detectedTrigger) {
-          if (firstUnplayedNote && noteDetected.n === firstUnplayedNote.n &&
-              (rcs.octEq ? true : noteDetected.l === firstUnplayedNote.l)) {
-            if (rcs.detectedTrigger) detectedThresholdCnt++;
-            if (rcs.detectedTrigger && detectedThresholdCnt >= rcs.detectedTriggerThreshold) {
-              detectedThresholdCnt = 0;
-              releaseNoteAtTarget();
-              if (runMode === RUN_MODE_CNR) {
-                dispatchRef({command: CMD_SET_DISPLAY_DETECTED, detectedDisplay: false});
-                dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: false});
-              }
+        if (runMode !== RUN_MODE_STARTED_DETECTING
+          && firstUnplayedKonvaNoteInTarget()
+          && rcs.detectedDisplay
+          && rcs.detectedTrigger
+          && firstUnplayedNote
+          && noteDetected.n === firstUnplayedNote.n
+          && (rcs.octEq ? true : noteDetected.l === firstUnplayedNote.l)) {
+
+          if (rcs.detectedTrigger) detectedThresholdCnt++;
+          if (rcs.detectedTrigger && detectedThresholdCnt >= rcs.detectedTriggerThreshold) {
+            detectedThresholdCnt = 0;
+            releaseNoteAtTarget();
+            if (runMode === RUN_MODE_CNR) {
+              dispatchRef({command: CMD_SET_DISPLAY_DETECTED, detectedDisplay: false});
+              dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: false});
             }
           }
         }
@@ -369,6 +374,10 @@ function updatePitch() {
           } else {
             detectedEle.innerHTML = 'Press Respond when ready';
           }
+        }
+
+        if (rcs.detectedShowKonvaNote) {
+          renderDetectedKonvaNote(noteDetected);
         }
       } else {
         console.warn('noteDetected not found: noteFreq=' + noteFreq);
@@ -397,11 +406,10 @@ function updatePitch() {
 //--------------------------------------------------------------
 
 function createNotesArrays() {
-  // todo: add text field for a4 frequencies
-  //const a4Freq = document.getElementById('frequency').value;
+
   const a4Freq = 440;
-  // go down four octaves
-  const a0 = a4Freq * Math.pow(1/2, 4);
+  // go down four octaves from a4
+  const a0Freq = a4Freq * Math.pow(1/2, 4);
   const TWELFTH_ROOT_OF_TWO = Math.pow(2, 1/12);
   const TWENTY_FOURTH_ROOT_OF_ONE_HALF = Math.pow(1/2, 1/24);
   let note, level, freq, ind;
@@ -417,12 +425,13 @@ function createNotesArrays() {
   for (let i=0; i<89; i++) {
     note = NOTES[(9 + i) % 12];
     level = Math.floor((9 + i)/12);
-    freq = a0*Math.pow(TWELFTH_ROOT_OF_TWO, i);
+    freq = a0Freq*Math.pow(TWELFTH_ROOT_OF_TWO, i);
 
     notesMinimum.push({
       n: note,
       l: level,
       f: roundTo(freq * TWENTY_FOURTH_ROOT_OF_ONE_HALF, 2),
+      i,
     });
 
     notesActual.push({
