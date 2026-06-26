@@ -97,7 +97,6 @@ const defaultState = {
   loops: 1,
   loopPlayTime: 800,
   loopPauseTime: 0,
-  detectedDisplay: false,
   detectedTriggerThreshold: 23,
   detectedTrigger: false,
   detectedShowKonvaNote: false,
@@ -313,7 +312,6 @@ function updatePitch() {
 
 	analyser.getFloatTimeDomainData(bufferAnalyserData);
 	var noteFreq = autoCorrelate(bufferAnalyserData, audioContext.sampleRate);
-  const thresh = (rcs.detectedTrigger) ? ' Threshold: ' + rcs.detectedTriggerThreshold : '';
 
   //animationFramesCtr++;
  	if (noteFreq == -1) {
@@ -349,7 +347,6 @@ function updatePitch() {
 
         if (runMode !== RUN_MODE_STARTED_DETECTING
           && firstUnplayedKonvaNoteInTarget()
-          && rcs.detectedDisplay
           && rcs.detectedTrigger
           && firstUnplayedNote
           && noteDetected.n === firstUnplayedNote.n
@@ -360,7 +357,6 @@ function updatePitch() {
             detectedThresholdCnt = 0;
             releaseNoteAtTarget();
             if (runMode === RUN_MODE_CNR) {
-              dispatchRef({command: CMD_SET_DISPLAY_DETECTED, detectedDisplay: false});
               dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: false});
             }
           }
@@ -369,7 +365,9 @@ function updatePitch() {
           detectedEle.innerHTML = '';
         }
         else if (runMode !== RUN_MODE_STARTED_DETECTING) {
-          if (rcs.detectedDisplay) {
+          if (rcs.detectedTrigger) {
+            const thresh =
+              (rcs.detectedTrigger) ? ' Threshold: ' + rcs.detectedTriggerThreshold : '';
             detectedEle.innerHTML = 'Detected: ' + detectedThresholdCnt + thresh;
           } else {
             detectedEle.innerHTML = 'Press Respond when ready';
@@ -384,7 +382,7 @@ function updatePitch() {
       }
     }
 
-	const note = noteFromPitch( noteFreq );
+  const note = noteFromPitch( noteFreq );
   const detune = centsOffFromPitch( noteFreq, note );
   if (detune == 0) {
     detuneElem.className = "";
@@ -740,7 +738,6 @@ function stopIt() {
 }
 
 function respondFake() {
-  dispatchRef({command: CMD_SET_DISPLAY_DETECTED, detectedDisplay: true});
   dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: true});
   respond();
 }

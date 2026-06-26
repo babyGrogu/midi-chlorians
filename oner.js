@@ -27,7 +27,6 @@ const CMD_SET_LOOP_PLAY_TIME = 'LOOP_PLAY_TIME';
 const CMD_SET_LOOP_PAUSE_TIME = 'LOOP_PAUSE_TIME';
 const CMD_SET_RANGE_LOW = 'RANGE_LOW';
 const CMD_SET_RANGE_HIGH = 'RANGE_HIGH';
-const CMD_SET_DISPLAY_DETECTED = 'DISPLAY_DETECTED';
 const CMD_SET_START_DETECTING = 'START_DETECTING';
 const CMD_SET_SHOW_DETECTED_NOTEK = 'SHOW_DETECTED_NOTEK';
 const CMD_SET_DETECTED_TRIGGER = 'DETECTED_TRIGGER';
@@ -135,13 +134,11 @@ function controlsReducer(state, action) {
       startAnimation();
       runMode = RUN_MODE_CNR;
       return {...state,
-        detectedDisplay: false,
         detectedTrigger: false
       };
     case (CMD_SET_CNR_RESPOND):
       respond();
       return {...state, 
-        detectedDisplay: true,
         detectedTrigger: true
       };
     case (CMD_RESET):
@@ -154,7 +151,6 @@ function controlsReducer(state, action) {
       stopIt();
       runMode = false;;
       return {...state,
-        detectedDisplay: false,
         detectedTrigger: false
       };
     case (CMD_SET_START_DETECTING):
@@ -174,7 +170,6 @@ function controlsReducer(state, action) {
       startAnimation();
       runMode = RUN_MODE_OLDSTYLE;
       return {...state,
-        detectedDisplay: true,
         detectedTrigger: true
       };
     case (CMD_SET_CHORK):
@@ -231,8 +226,6 @@ function controlsReducer(state, action) {
       return {...state, loopPlayTime: action.loopPlayTime};
     case (CMD_SET_LOOP_PAUSE_TIME):
       return {...state, loopPauseTime: action.loopPauseTime};
-    case (CMD_SET_DISPLAY_DETECTED):
-      return {...state, detectedDisplay: action.detectedDisplay };
     case (CMD_SET_DETECTED_TRIGGER):
       return {...state, detectedTrigger: action.detectedTrigger };
     case (CMD_SET_DETECTED_TRIGGER_THRESHOLD):
@@ -392,6 +385,15 @@ const Controls = (props) => {
           <option key={2} value={FUNC_DESC}>Descending notes</option>
         </select>
       </div>
+      <div>
+        <input type="checkbox" id="hide" checked={rcs.hide} onChange={e => dispatch({
+            command: CMD_SET_HIDE,
+            hide: e.currentTarget.checked,
+            target: e.currentTarget,
+          })
+        }/>
+        <label htmlFor="hide"> Hide notes and detected count until note is released </label>
+      </div>
 
       <div className="vertSpacer"></div>
 
@@ -408,18 +410,19 @@ const Controls = (props) => {
         </select>
         <label>Input</label>
       </div>
-
       <div>
-        <span>
-          <input type="checkbox" id="detectedDisplay" checked={rcs.detectedDisplay} disabled={rcs.input === NONE} onChange={e =>
-            dispatch({
-              command: CMD_SET_DISPLAY_DETECTED,
-              detectedDisplay: e.currentTarget.checked,
-              target: e.currentTarget,
-            })
-          }/>
-          <label htmlFor="detectedDisplay">Display note detected count</label>
-        </span>
+        <input type="checkbox" id="amp" checked={rcs.amp} checked={rcs.amp}
+          disabled={rcs.input === NONE} onChange={e => dispatch({
+            command: CMD_SET_AMP,
+            amp: e.currentTarget.checked,
+            target: e.currentTarget,
+          })
+        }/>
+        <label htmlFor="amp">Send input from USB cable or Microphone to computer audio output</label>
+      </div>
+
+      <div className="vertSpacer"></div>
+      <div>
         <span>
           <input type="checkbox" id="detectedTrigger" checked={rcs.detectedTrigger} disabled={rcs.input === NONE} onChange={e =>
             dispatch({
@@ -446,16 +449,6 @@ const Controls = (props) => {
           })
         }/>
         <label htmlFor="octavesEqual">Octave notes are treated as equal when played</label>
-      </div>
-      <div>
-        <input type="checkbox" id="amp" checked={rcs.amp} checked={rcs.amp}
-          disabled={rcs.input === NONE} onChange={e => dispatch({
-            command: CMD_SET_AMP,
-            amp: e.currentTarget.checked,
-            target: e.currentTarget,
-          })
-        }/>
-        <label htmlFor="amp">Send input from USB cable or Microphone to computer audio output</label>
       </div>
 
       <div className="vertSpacer"></div>
@@ -590,15 +583,6 @@ const Controls = (props) => {
               vel: parseInt(e.currentTarget.value,10),
             })} />
         <label htmlFor="velocity">{rcs.animationVelocity} Staff note speed </label>
-      </div>
-      <div>
-        <input type="checkbox" id="hide" checked={rcs.hide} onChange={e => dispatch({
-            command: CMD_SET_HIDE,
-            hide: e.currentTarget.checked,
-            target: e.currentTarget,
-          })
-        }/>
-        <label htmlFor="hide"> Hide notes and detected count until note is released </label>
       </div>
 
       <div className="vertSpacer"></div>
