@@ -480,8 +480,6 @@ function findFirstUnplayedKonvaNote() {
 
 function firstUnplayedKonvaNoteInTarget() {
   const kn = findFirstUnplayedKonvaNote();
-  // if runMode STATED_DETECTION is on first there are no notes
-  // when user starts Old style or Call run modes
   if (!kn) return false;
   // roll keeps going to the left and becomes a large negative
   const knx = roll.getAttr('x') + kn.x();
@@ -515,13 +513,12 @@ function releaseNoteAtTarget() {
     if (accK)
       accK.setAttr('visible', true);
   }
-  if (! animateRoll.isRunning()) {
-    animateRoll.start();
-  }
-  stopCurrentNotePad();
-  stopLoopingTimers();
+  nextNote();
   if (rcs.tone && rcs.beep) {
     beep();
+  }
+  if (! animateRoll.isRunning()) {
+    animateRoll.start();
   }
 }
 

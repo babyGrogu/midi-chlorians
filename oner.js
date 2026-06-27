@@ -132,9 +132,9 @@ function controlsReducer(state, action) {
   switch(action.command) {
     case (CMD_SET_RM_CNR):
       startAnimation();
-      runMode = RUN_MODE_CNR;
       return {...state,
-        detectedTrigger: false
+        detectedTrigger: false,
+        runMode: RUN_MODE_CNR
       };
     case (CMD_SET_CNR_RESPOND):
       respond();
@@ -149,7 +149,7 @@ function controlsReducer(state, action) {
       return newState;
     case (CMD_STOP):
       stopIt();
-      runMode = false;;
+      started = false;;
       return {...state,
         detectedTrigger: false
       };
@@ -165,9 +165,9 @@ function controlsReducer(state, action) {
       };
     case (CMD_SET_RM_OLDSTYLE):
       startAnimation();
-      runMode = RUN_MODE_OLDSTYLE;
       return {...state,
-        detectedTrigger: true
+        detectedTrigger: true,
+        runMode: RUN_MODE_OLDSTYLE
       };
     case (CMD_SET_CHORK):
       newState = {...state,  chromatic: action.chromatic, skip: {}};
@@ -290,8 +290,21 @@ const Controls = (props) => {
   return (
     <div>
 
+      STAFF ZONE
       <div>
-        <label>Key </label>
+        <select id="selectChOrKey"
+          value={rcs.chromatic}
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_CHORK,
+              chromatic: parseInt(e.currentTarget.value, 10),
+              target: e.currentTarget
+            })
+          }
+          >
+          <option value={0}>Diatonic notes of key &rarr;</option>
+          <option value={1}>Chromatic notes of key &#8594;</option>
+        </select>
         <select id="selectKey"
           value={KEYS.findIndex(k => k.label === KEYS[rcs.key].label)}
           onChange={e =>
@@ -324,24 +337,8 @@ const Controls = (props) => {
             </span>
           ))
         }</span>
-        <span className="horizSpacer"></span>
-        <select id="selectChOrKey"
-          value={rcs.chromatic}
-          onChange={e =>
-            dispatch({
-              command: CMD_SET_CHORK,
-              chromatic: parseInt(e.currentTarget.value, 10),
-              target: e.currentTarget
-            })
-          }
-          >
-          <option value={0}>Show only notes in the key</option>
-          <option value={1}>Show all notes{/* chromatic */}</option>
-        </select>
       </div>
       <div className="vertSpacer"></div>
-      <div className="vertSpacer"></div>
-
       <div>
         <select id="selectLow" value={rcs.rangeLow}
           onChange={e =>
@@ -392,20 +389,19 @@ const Controls = (props) => {
         <label htmlFor="hide">Hide notes and detected count until note is released </label>
       </div>
       <div>
-        <input type="checkbox" id="showDetectedKonvaNote"
-          checked={rcs.detectedShowKonvaNote}
-          disabled={!runMode}
+        <input id="velocity" type="range" value={rcs.animationVelocity} min="10" max="125"
           onChange={e =>
             dispatch({
-              command: CMD_SET_SHOW_DETECTED_NOTEK,
-              detectedShowKonvaNote: e.currentTarget.checked,
-              target: e.currentTarget,
-            })
-          }/><label htmlFor="showDetectedKonvaNote">Show detected konva note on staff</label>
+              command: CMD_SET_VELOCITY,
+              vel: parseInt(e.currentTarget.value,10),
+            })} />
+        <label htmlFor="velocity">{rcs.animationVelocity} Staff note speed </label>
       </div>
 
       <div className="vertSpacer"></div>
+      <div className="vertSpacer"></div>
 
+      INPUT ZONE
       <div>
         <select id="input" value={rcs.input} onChange={e =>
             dispatch({
@@ -431,8 +427,19 @@ const Controls = (props) => {
       </div>
 
       <div className="vertSpacer"></div>
+
+      DETECTION ZONE
       <div>
-        <span>
+        <input type="checkbox" id="octavesEqual" checked={rcs.octEq} disabled={rcs.input === NONE} onChange={e =>
+          dispatch({
+            command: CMD_SET_OCTEQ,
+            octEq: e.currentTarget.checked,
+            target: e.currentTarget,
+          })
+        }/>
+        <label htmlFor="octavesEqual">Octave notes are treated as equal when detected</label>
+      </div>
+      <div>
           <input type="checkbox" id="detectedTrigger" checked={rcs.detectedTrigger} disabled={rcs.input === NONE} onChange={e =>
             dispatch({
               command: CMD_SET_DETECTED_TRIGGER,
@@ -447,21 +454,24 @@ const Controls = (props) => {
             })
           }/>
           <label htmlFor="detectedTriggerThreshold"> {rcs.detectedTriggerThreshold} Note detected release threshold</label>
-        </span>
       </div>
       <div>
-        <input type="checkbox" id="octavesEqual" checked={rcs.octEq} disabled={rcs.input === NONE} onChange={e =>
-          dispatch({
-            command: CMD_SET_OCTEQ,
-            octEq: e.currentTarget.checked,
-            target: e.currentTarget,
-          })
-        }/>
-        <label htmlFor="octavesEqual">Octave notes are treated as equal when detected</label>
+        <input type="checkbox" id="showDetectedKonvaNote"
+          checked={rcs.detectedShowKonvaNote}
+          disabled={!started}
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_SHOW_DETECTED_NOTEK,
+              detectedShowKonvaNote: e.currentTarget.checked,
+              target: e.currentTarget,
+            })
+          }/><label htmlFor="showDetectedKonvaNote">Show detected konva note on staff</label>
       </div>
 
       <div className="vertSpacer"></div>
+      <div className="vertSpacer"></div>
 
+      PLAY NOTES ZONE
       <div>
         <input type="checkbox" id="tone" checked={rcs.tone} onChange={e =>
           dispatch({
@@ -585,59 +595,40 @@ const Controls = (props) => {
       <div className="vertSpacer"></div>
 
       <div>
-        <input id="velocity" type="range" value={rcs.animationVelocity} min="10" max="125"
-          onChange={e =>
-            dispatch({
-              command: CMD_SET_VELOCITY,
-              vel: parseInt(e.currentTarget.value,10),
-            })} />
-        <label htmlFor="velocity">{rcs.animationVelocity} Staff note speed </label>
-      </div>
-
-      <div className="vertSpacer"></div>
-
-      <div>
         <button onClick={e => dispatch({
           command: CMD_SET_START_DETECTING,
           target: e.currentTarget
-        })} disabled={runMode}>Turn on note detection</button>
+        })} disabled={started}>Start</button>
         <span className="horizSpacer"></span>
-      </div>
-      <div className="vertSpacer"></div>
-      <div>
         <button onClick={e => dispatch({
           command: CMD_SET_RM_OLDSTYLE,
           target: e.currentTarget
-        })}>Old style</button>
-      </div>
-      <div className="vertSpacer"></div>
-      <div>
+        })} disabled={!started}>Old style</button>
+        <span className="horizSpacer"></span>
         <button onClick={e => dispatch({
           command: CMD_SET_RM_CNR,
           target: e.currentTarget
-        })}>Call</button>
+        })} disabled={!started} >Call</button>
         <span className="horizSpacer"></span>
         <button onClick={e => dispatch({
           command: CMD_SET_CNR_RESPOND,
           target: e.currentTarget
-        })}>Respond</button>
-      </div>
-      <div className="vertSpacer"></div>
-      <div>
+        })} disabled={!started || rcs.runMode !== RUN_MODE_CNR}>Respond</button>
+        <span className="horizSpacer"></span>
         <button onClick={e => dispatch({
           command: CMD_STOP,
           target: e.currentTarget
-        })}>Stop</button>
-        <span className="horizSpacer"></span>
-        <button onClick={e => dispatch({
-          command: CMD_RESET,
-          target: e.currentTarget
-        })}>Reset</button>
+        })} disabled={!started}>Stop</button>
         <span className="horizSpacer"></span>
         <button onClick={e => {
           e.currentTarget.blur();
           clearNotes();
-        }}>Clear notes</button>
+        }} disabled={roll.getChildren()?.length === 0}>Clear notes</button>
+        <span className="horizSpacer"></span>
+        <button onClick={e => dispatch({
+          command: CMD_RESET,
+          target: e.currentTarget
+        })}disabled={started}>Reset</button>
       </div>
     </div>
   );

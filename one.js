@@ -103,8 +103,9 @@ const defaultState = {
   beep: false,
   func: FUNC_RANDO,
   skip: {},
+  runMode: false,
 };
-let runMode = false;
+let started = false;
 let initialState;
 let notesActualInKeyForRange = [];
 
@@ -219,7 +220,7 @@ async function startAudioListening() {
     }
   } catch (err) {
     console.error(`${err.name}: ${err.message}`);
-    runMode = false; forceReactUpdateTrick();
+    started = false; forceReactUpdateTrick();
     alert('Stream generation failed.');
   }
 }
@@ -321,58 +322,61 @@ function updatePitch(/* timestamp */) {
 	 	hertzElem.innerText = Math.round( noteFreq ) ;
 
     // this is our test range for respond
-    if (runMode === RUN_MODE_CNR
+    if (rcs.runMode === RUN_MODE_CNR
         && notesMinimum[trigger].f <= noteFreq
         && noteFreq < notesMinimum[trigger+1].f
         && ! rcs.detectedTrigger) {
       respondTriggered();
+      beepBeep();
     }
 
     // if the frequency seen is in our UI set range limits...
-    if (runMode
+    if (started
       && notesMinimum[0].f <= noteFreq
       && noteFreq < notesActual[notesActual.length-1].f
     ) {
       const noteDetected = binarySearch(noteFreq);
       if (noteDetected) {
-        if (!rcs.hide) {
+        if (rcs.hide) {
 	 	      //const note = noteFromPitch( noteFreq );
       		//noteElem.innerHTML = NOTES[note%12];
+          noteElem.innerHTML = ' ';
+          detectedEle.innerHTML = ' ';
+        } else  {
           noteElem.innerHTML = getLabelForNote(noteDetected.n) + ' ' + noteDetected.l;
-        }
-
-        const firstUnplayedNote = findFirstUnplayedNote();
-
-        if (firstUnplayedKonvaNoteInTarget()
-          && rcs.detectedTrigger
-          && firstUnplayedNote
-          && noteDetected.n === firstUnplayedNote.n
-          && (rcs.octEq ? true : noteDetected.l === firstUnplayedNote.l)) {
-
-          if (rcs.detectedTrigger) detectedThresholdCnt++;
-          if (rcs.detectedTrigger && detectedThresholdCnt >= rcs.detectedTriggerThreshold) {
-            detectedThresholdCnt = 0;
-            releaseNoteAtTarget();
-            if (runMode === RUN_MODE_CNR) {
-              dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: false});
-            }
-          }
-        }
-
-        if (rcs.hide) {
-          detectedEle.innerHTML = '';
-        }
-        else if (rcs.detectedTrigger) {
-          const thresh =
-            (rcs.detectedTrigger) ? ' Threshold: ' + rcs.detectedTriggerThreshold : '';
-          detectedEle.innerHTML = 'Detected: ' + detectedThresholdCnt + thresh;
-        }
-        else if (runMode === RUN_MODE_CNR) {
-          detectedEle.innerHTML = 'Press Respond when ready';
         }
 
         if (rcs.detectedShowKonvaNote) {
           renderDetectedKonvaNote(noteDetected);
+        }
+
+        if (rcs.runMode) {
+          const firstUnplayedNote = findFirstUnplayedNote();
+
+          if (firstUnplayedKonvaNoteInTarget()
+            && rcs.detectedTrigger
+            && firstUnplayedNote
+            && noteDetected.n === firstUnplayedNote.n
+            && (rcs.octEq ? true : noteDetected.l === firstUnplayedNote.l)) {
+
+            if (rcs.detectedTrigger) detectedThresholdCnt++;
+            if (rcs.detectedTrigger && detectedThresholdCnt >= rcs.detectedTriggerThreshold) {
+              detectedThresholdCnt = 0;
+              releaseNoteAtTarget();
+              if (rcs.runMode === RUN_MODE_CNR) {
+                dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: false});
+              }
+            }
+          }
+
+          if (rcs.detectedTrigger) {
+            const thresh =
+              (rcs.detectedTrigger) ? ' Threshold: ' + rcs.detectedTriggerThreshold : '';
+            detectedEle.innerHTML = 'Detected: ' + detectedThresholdCnt + thresh;
+          }
+          else if (rcs.runMode === RUN_MODE_CNR) {
+            detectedEle.innerHTML = 'Press Respond when ready';
+          }
         }
       } else {
         console.warn('noteDetected not found: noteFreq=' + noteFreq);
@@ -699,7 +703,7 @@ function calcIntervalFreq(freq, distanceOfNotesInKey) {
 //       remove this init if keyboard listeners work with react
 function startDetecting() {
 
-  if (runMode) {
+  if (started) {
     return true;
   }
 
@@ -709,13 +713,13 @@ function startDetecting() {
     return false;
   }
 
-  runMode = RUN_MODE_STARTED; forceReactUpdateTrick();
+  started = true; forceReactUpdateTrick();
   startAudioListening();
   startKeyBoardListening();
 }
 
 function startAnimation() {
-  if (!runMode) {
+  if (!started) {
     const r = startDetecting();
     if (!r) return; // don't start animation
   }
@@ -730,19 +734,28 @@ function restartAnimation() {
   }
 }
 
+function nextNote() {
+  stopPadAll();
+  stopLoopingTimers();
+  detectedThresholdCnt = 0;
+  loopsCtr = 0; forceReactUpdateTrick();
+  //detectedEle.innerHTML = '';
+}
+
 function stopIt() {
   animateRoll.stop();
-  loopsCtr = 0; forceReactUpdateTrick();
   stopPadAll();
   stopLoopingTimers();
   detectedThresholdCnt = 0;
   detectedEle.innerHTML = '';
+  loopsCtr = 0; // subsequent lines call dispatchRef // forceReactUpdateTrick(); 
+  rcs.runMode = false; // subsequent lines call dispatchRef // forceReactUpdateTrick(); 
+  dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: false});
+  dispatchRef({command: CMD_SET_SHOW_DETECTED_NOTEK, detectedShowKonvaNote: false});
 }
 
 function respondTriggered() {
-  dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: true});
-  respond();
-  beepBeep();
+  dispatchRef({command: CMD_SET_CNR_RESPOND});
 }
 
 function respond() {
