@@ -75,7 +75,7 @@ const FUNC_DESC = 'DESC';
 
 const RUN_MODE_CNR = 'C&R';
 const RUN_MODE_OLDSTYLE = 'OLDSTYLE';
-const RUN_MODE_STARTED_DETECTING = 'START_DET';
+const RUN_MODE_STARTED = 'STARTED';
 
 // keep defaultState to one level of nested objects so the localStorage of ui settings will work
 const defaultState = {
@@ -116,7 +116,6 @@ let detectedThresholdCnt = 0;
 let hertzElem, noteElem, detectedEle, detuneElem, detuneAmount, lastPlayed;
 let loopNote, loopsCtr, timeoutRoot, timeoutPadPauseUntilLoopRestart, timeoutThird, timeoutFifth, timeoutSeventh;
 let padOscillatorsAtFreq = {};
-let inited =  false; // inited doesn't have a UI setting so keeping out of rcs
 
 // arrays of notes
 let notesActual = [], notesMinimum = [], noteNamesInKey = [], noteNamesChromaticForKey = [];
@@ -171,10 +170,7 @@ async function startAudioListening() {
     if (rcs.amp) {
       analyser.connect(audioContext.destination);
     }
-    // TODO: starting updatePitch might be better to do when
-    // the first note reaches the target
     updatePitch();
-    //beep(); // so i know it worked
   }
 
   try {
@@ -223,6 +219,7 @@ async function startAudioListening() {
     }
   } catch (err) {
     console.error(`${err.name}: ${err.message}`);
+    runMode = false; forceReactUpdateTrick();
     alert('Stream generation failed.');
   }
 }
@@ -305,7 +302,9 @@ function binarySearch(freq) {
   return notesMinimum[lower];
 }
       
-function updatePitch() {
+// timestamp is the number of milliseconds since the page's time origin
+//   (similar to performance.now()).
+function updatePitch(/* timestamp */) {
 
   // TODO: ?? make a ui widget
   const trigger = 2; // B0, 27hz, nm#2 i can't beleive this works!
@@ -326,8 +325,7 @@ function updatePitch() {
         && notesMinimum[trigger].f <= noteFreq
         && noteFreq < notesMinimum[trigger+1].f
         && ! rcs.detectedTrigger) {
-      beepBeep();
-      respondFake();
+      respondTriggered();
     }
 
     // if the frequency seen is in our UI set range limits...
@@ -345,8 +343,7 @@ function updatePitch() {
 
         const firstUnplayedNote = findFirstUnplayedNote();
 
-        if (runMode !== RUN_MODE_STARTED_DETECTING
-          && firstUnplayedKonvaNoteInTarget()
+        if (firstUnplayedKonvaNoteInTarget()
           && rcs.detectedTrigger
           && firstUnplayedNote
           && noteDetected.n === firstUnplayedNote.n
@@ -361,17 +358,17 @@ function updatePitch() {
             }
           }
         }
+
         if (rcs.hide) {
           detectedEle.innerHTML = '';
         }
-        else if (runMode !== RUN_MODE_STARTED_DETECTING) {
-          if (rcs.detectedTrigger) {
-            const thresh =
-              (rcs.detectedTrigger) ? ' Threshold: ' + rcs.detectedTriggerThreshold : '';
-            detectedEle.innerHTML = 'Detected: ' + detectedThresholdCnt + thresh;
-          } else {
-            detectedEle.innerHTML = 'Press Respond when ready';
-          }
+        else if (rcs.detectedTrigger) {
+          const thresh =
+            (rcs.detectedTrigger) ? ' Threshold: ' + rcs.detectedTriggerThreshold : '';
+          detectedEle.innerHTML = 'Detected: ' + detectedThresholdCnt + thresh;
+        }
+        else if (runMode === RUN_MODE_CNR) {
+          detectedEle.innerHTML = 'Press Respond when ready';
         }
 
         if (rcs.detectedShowKonvaNote) {
@@ -398,6 +395,9 @@ function updatePitch() {
 
   if (!window.requestAnimationFrame)
     window.requestAnimationFrame = window.webkitRequestAnimationFrame;
+  // requestAnimationFrame means
+  //  " run this function (updatePitch) right before the next screen repaint"
+  // this syncs up that function with the screen refresh rate
   rafID = window.requestAnimationFrame( updatePitch );
 }
 
@@ -499,6 +499,8 @@ function pad(freq) {
 
 
   var filter = audioContext.createBiquadFilter();
+  filter.type = "lowpass"; // this is the default
+  filter.Q.value = 0.7; // creates a gentle roll off at frequence.value
   filter.connect(audioContext.destination);
   filter.frequency.value = 402;
   filter.detune.setValueAtTime(756, t);
@@ -695,9 +697,9 @@ function calcIntervalFreq(freq, distanceOfNotesInKey) {
 
 // TODO: ask ai how to use keyboard listeners with react and dispatch
 //       remove this init if keyboard listeners work with react
-function initIt() {
+function startDetecting() {
 
-  if (inited) {
+  if (runMode) {
     return true;
   }
 
@@ -707,14 +709,14 @@ function initIt() {
     return false;
   }
 
-  inited = true;
+  runMode = RUN_MODE_STARTED; forceReactUpdateTrick();
   startAudioListening();
   startKeyBoardListening();
 }
 
 function startAnimation() {
-  if (!inited) {
-    const r = initIt();
+  if (!runMode) {
+    const r = startDetecting();
     if (!r) return; // don't start animation
   }
   if (! animateRoll.isRunning()) {
@@ -737,9 +739,10 @@ function stopIt() {
   detectedEle.innerHTML = '';
 }
 
-function respondFake() {
+function respondTriggered() {
   dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: true});
   respond();
+  beepBeep();
 }
 
 function respond() {
@@ -790,7 +793,7 @@ function startKeyBoardListening() {
       } else if (evt.key === 's') {
         showNoteAtTarget();
       } else if (evt.key === 'r') {
-        respondFake();
+        respondTriggered();
       } else {
         const note = findFirstUnplayedNote();
         if (note && note.n.toLowerCase().indexOf(evt.key) > -1) {

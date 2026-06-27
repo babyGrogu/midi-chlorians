@@ -154,10 +154,7 @@ function controlsReducer(state, action) {
         detectedTrigger: false
       };
     case (CMD_SET_START_DETECTING):
-      const ok = initIt();
-      if (ok) {
-        runMode = RUN_MODE_STARTED_DETECTING; forceReactUpdateTrick();
-      }
+      startDetecting();
       return state;
     case (CMD_SET_SHOW_DETECTED_NOTEK):
        if (!action.detectedShowKonvaNote) {
@@ -392,7 +389,19 @@ const Controls = (props) => {
             target: e.currentTarget,
           })
         }/>
-        <label htmlFor="hide"> Hide notes and detected count until note is released </label>
+        <label htmlFor="hide">Hide notes and detected count until note is released </label>
+      </div>
+      <div>
+        <input type="checkbox" id="showDetectedKonvaNote"
+          checked={rcs.detectedShowKonvaNote}
+          disabled={!runMode}
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_SHOW_DETECTED_NOTEK,
+              detectedShowKonvaNote: e.currentTarget.checked,
+              target: e.currentTarget,
+            })
+          }/><label htmlFor="showDetectedKonvaNote">Show detected konva note on staff</label>
       </div>
 
       <div className="vertSpacer"></div>
@@ -448,7 +457,7 @@ const Controls = (props) => {
             target: e.currentTarget,
           })
         }/>
-        <label htmlFor="octavesEqual">Octave notes are treated as equal when played</label>
+        <label htmlFor="octavesEqual">Octave notes are treated as equal when detected</label>
       </div>
 
       <div className="vertSpacer"></div>
@@ -586,24 +595,13 @@ const Controls = (props) => {
       </div>
 
       <div className="vertSpacer"></div>
-      <div className="vertSpacer"></div>
 
       <div>
         <button onClick={e => dispatch({
           command: CMD_SET_START_DETECTING,
           target: e.currentTarget
-        })}>Turn on note detection</button>
+        })} disabled={runMode}>Turn on note detection</button>
         <span className="horizSpacer"></span>
-        <input type="checkbox" id="showDetectedKonvaNote"
-          checked={rcs.detectedShowKonvaNote}
-          disabled={!runMode}
-          onChange={e =>
-            dispatch({
-              command: CMD_SET_SHOW_DETECTED_NOTEK,
-              detectedShowKonvaNote: e.currentTarget.checked,
-              target: e.currentTarget,
-            })
-          }/><label htmlFor="showDetectedKonvaNote">Show detected konva note</label>
       </div>
       <div className="vertSpacer"></div>
       <div>
