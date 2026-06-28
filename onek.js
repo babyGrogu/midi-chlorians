@@ -513,8 +513,8 @@ function releaseNoteAtTarget() {
     if (accK)
       accK.setAttr('visible', true);
   }
-  nextNote();
-  if (rcs.tone && rcs.beep) {
+  movingToNextNote();
+  if (rcs.beep) {
     beep();
   }
   if (! animateRoll.isRunning()) {
@@ -852,7 +852,7 @@ function renderDetectedKonvaNote(noteDet) {
   }
 }
 function hideDetectedKonvaNote() {
-  detNoteGrp.setAttr('visible', false);
+  detNoteGrp?.setAttr('visible', false);
 }
 
 
@@ -913,9 +913,7 @@ const animateRoll = new Konva.Animation(function (frame) {
     const konvaNoteX = konvaNote.getAttr('x') + newX  + noteRadiusX + 4;
     if (konvaNoteX <= targetX + noteRadiusX + 5) {
       animateRoll.stop();
-      if (rcs.tone) {
-        startLooping(konvaNote.getAttr(ATTR_NOTE));
-      }
+      startLooping(konvaNote.getAttr(ATTR_NOTE));
     }
   }
 

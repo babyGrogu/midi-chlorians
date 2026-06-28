@@ -74,8 +74,9 @@ const FUNC_ASC = 'ASC';
 const FUNC_DESC = 'DESC';
 
 const RUN_MODE_CNR = 'C&R';
-const RUN_MODE_OLDSTYLE = 'OLDSTYLE';
+const RUN_MODE_STOPONNOTE = 'OLDSTYLE';
 const RUN_MODE_STARTED = 'STARTED';
+const RUN_MODE_CONTINUOUS = 'CONTINUOUS';
 
 // keep defaultState to one level of nested objects so the localStorage of ui settings will work
 const defaultState = {
@@ -350,7 +351,7 @@ function updatePitch(/* timestamp */) {
           renderDetectedKonvaNote(noteDetected);
         }
 
-        if (rcs.runMode) {
+        if (rcs.runMode === RUN_MODE_CNR || rcs.runMode === RUN_MODE_STOPONNOTE) {
           const firstUnplayedNote = findFirstUnplayedNote();
 
           if (firstUnplayedKonvaNoteInTarget()
@@ -587,19 +588,19 @@ function oneLoopPadStop(loopFreq) {
     if (loopsCtr > 0) {
       oneLoopPadStart();
     }
-    /*
-    else if (rcs.input === NONE) {
-      // this lets the roll play by itself at the end of each tone
-      // without needing to input being on
+    else if (rcs.runMode === RUN_MODE_CONTINUOUS) {
+      // this lets the roll play by itself at the end of looping
       releaseNoteAtTarget();
     }
-    */
   }, rcs.loopPauseTime);
 }
 
 
 function startPad(freq) {
-  pad(freq);
+  if (rcs.tone)
+    pad(freq);
+  else
+    return;
 
   const stoTime = (rcs.chordOrArpg === 'chord' ? 0 :  rcs.loopPlayTime);
   let chordTones = 1; // 1 is to account for the root tone
@@ -734,12 +735,18 @@ function restartAnimation() {
   }
 }
 
-function nextNote() {
+function movingToNextNote() {
   stopPadAll();
   stopLoopingTimers();
   detectedThresholdCnt = 0;
   loopsCtr = 0; forceReactUpdateTrick();
   //detectedEle.innerHTML = '';
+}
+
+function playNoteAtTarget() {
+  stopPadAll();
+  stopLoopingTimers();
+  oneLoopPadStart();
 }
 
 function stopIt() {
@@ -793,14 +800,11 @@ function setNoteFunction(state) {
   }
 }
 
-// TODO: ask ai how to use keyboard listeners with react and dispatch
 function startKeyBoardListening() {
   document.addEventListener('keyup', evt => {
     if (evt.key) {
       if (evt.key === ' ') {
-        stopPadAll();
-        stopLoopingTimers();
-        oneLoopPadStart();
+        playNoteAtTarget();
       } else if (evt.key === 'n') {
         releaseNoteAtTarget();
       } else if (evt.key === 's') {

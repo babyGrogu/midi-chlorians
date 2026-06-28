@@ -5,9 +5,11 @@ const { createRoot } = ReactDOM;
 
 const CMD_SET_RM_CNR = 'SET_RM_CNR';
 const CMD_SET_CNR_RESPOND = 'SET_CNR_RESPOND';
+const CMD_SET_CNR_PLAYNOTE = 'SET_CNR_PLAYNOTE';
 const CMD_RESET = 'RESET';
 const CMD_STOP = 'STOP';
-const CMD_SET_RM_OLDSTYLE = 'SET_RM_OLDSTYLE';
+const CMD_SET_RM_STOPONNOTE = 'SET_RM_OLDSTYLE';
+const CMD_SET_RM_CONTINUOUS = 'SET_RM_CONTINUOUS';
 
 const CMD_SET_INPUT = 'LISTENING';
 const CMD_SET_OCTEQ = 'OCT_EQ';
@@ -130,12 +132,40 @@ function controlsReducer(state, action) {
   let newState = {};
   action?.target?.blur(); // remove focus from widget so keyboard does not change selection
   switch(action.command) {
-    case (CMD_SET_RM_CNR):
+    case (CMD_SET_START_DETECTING):
+      startDetecting();
+      return state;
+    case (CMD_SET_RM_CONTINUOUS):
+      clearNotes();
+      startAnimation();
+      hideDetectedKonvaNote();
+      return {...state,
+        hide: false,
+        beep: false,
+        detectedShowKonvaNote: false,
+        detectedTrigger: false,
+        runMode: RUN_MODE_CONTINUOUS
+      };
+    case (CMD_SET_RM_STOPONNOTE):
       startAnimation();
       return {...state,
+        detectedShowKonvaNote: true,
+        detectedTrigger: true,
+        runMode: RUN_MODE_STOPONNOTE
+      };
+    case (CMD_SET_RM_CNR):
+      clearNotes();
+      startAnimation();
+      return {...state,
+        hide: true,
+        beep: true,
+        detectedShowKonvaNote: true,
         detectedTrigger: false,
         runMode: RUN_MODE_CNR
       };
+    case (CMD_SET_CNR_PLAYNOTE):
+      playNoteAtTarget();
+      return state;
     case (CMD_SET_CNR_RESPOND):
       respond();
       return {...state, 
@@ -150,24 +180,17 @@ function controlsReducer(state, action) {
     case (CMD_STOP):
       stopIt();
       started = false;;
+      hideDetectedKonvaNote();
       return {...state,
+        detectedShowKonvaNote: false,
         detectedTrigger: false
       };
-    case (CMD_SET_START_DETECTING):
-      startDetecting();
-      return state;
     case (CMD_SET_SHOW_DETECTED_NOTEK):
        if (!action.detectedShowKonvaNote) {
          hideDetectedKonvaNote();
        }
       return {...state,
         detectedShowKonvaNote: action.detectedShowKonvaNote
-      };
-    case (CMD_SET_RM_OLDSTYLE):
-      startAnimation();
-      return {...state,
-        detectedTrigger: true,
-        runMode: RUN_MODE_OLDSTYLE
       };
     case (CMD_SET_CHORK):
       newState = {...state,  chromatic: action.chromatic, skip: {}};
@@ -290,7 +313,7 @@ const Controls = (props) => {
   return (
     <div>
 
-      STAFF ZONE
+      STAFF PANEL
       <div>
         <select id="selectChOrKey"
           value={rcs.chromatic}
@@ -401,7 +424,7 @@ const Controls = (props) => {
       <div className="vertSpacer"></div>
       <div className="vertSpacer"></div>
 
-      INPUT ZONE
+      INPUT PANEL
       <div>
         <select id="input" value={rcs.input} onChange={e =>
             dispatch({
@@ -428,7 +451,7 @@ const Controls = (props) => {
 
       <div className="vertSpacer"></div>
 
-      DETECTION ZONE
+      DETECTION PANEL
       <div>
         <input type="checkbox" id="octavesEqual" checked={rcs.octEq} disabled={rcs.input === NONE} onChange={e =>
           dispatch({
@@ -456,6 +479,16 @@ const Controls = (props) => {
           <label htmlFor="detectedTriggerThreshold"> {rcs.detectedTriggerThreshold} Note detected release threshold</label>
       </div>
       <div>
+        <input type="checkbox" id="beep" checked={rcs.beep} onChange={e =>
+          dispatch({
+            command: CMD_SET_BEEP,
+            beep: e.currentTarget.checked,
+            target: e.currentTarget,
+          })
+        }/>
+        <label htmlFor="beep">Beep when note released</label>
+      </div>
+      <div>
         <input type="checkbox" id="showDetectedKonvaNote"
           checked={rcs.detectedShowKonvaNote}
           disabled={!started}
@@ -471,7 +504,7 @@ const Controls = (props) => {
       <div className="vertSpacer"></div>
       <div className="vertSpacer"></div>
 
-      PLAY NOTES ZONE
+      PLAY NOTES PANEL
       <div>
         <input type="checkbox" id="tone" checked={rcs.tone} onChange={e =>
           dispatch({
@@ -481,15 +514,6 @@ const Controls = (props) => {
           })
         }/>
         <label htmlFor="tone">Play sound of chord / arpeggio when note reaches the target</label>
-
-        <input type="checkbox" id="beep" checked={rcs.beep} onChange={e =>
-          dispatch({
-            command: CMD_SET_BEEP,
-            beep: e.currentTarget.checked,
-            target: e.currentTarget,
-          })
-        }/>
-        <label htmlFor="beep">Beep when note released</label>
       </div>
 
       <div>
@@ -601,14 +625,24 @@ const Controls = (props) => {
         })} disabled={started}>Start</button>
         <span className="horizSpacer"></span>
         <button onClick={e => dispatch({
-          command: CMD_SET_RM_OLDSTYLE,
+          command: CMD_SET_RM_CONTINUOUS,
           target: e.currentTarget
-        })} disabled={!started}>Old style</button>
+        })} disabled={!started}>Continuous</button>
+        <span className="horizSpacer"></span>
+        <button onClick={e => dispatch({
+          command: CMD_SET_RM_STOPONNOTE,
+          target: e.currentTarget
+        })} disabled={!started}>Stop On Note</button>
         <span className="horizSpacer"></span>
         <button onClick={e => dispatch({
           command: CMD_SET_RM_CNR,
           target: e.currentTarget
-        })} disabled={!started} >Call</button>
+        })} disabled={!started} >Call & Respond</button>
+        <span className="horizSpacer"></span>
+        <button onClick={e => dispatch({
+          command: CMD_SET_CNR_PLAYNOTE,
+          target: e.currentTarget
+        })} disabled={!started || rcs.runMode !== RUN_MODE_CNR || !rcs.tone}>Play Note</button>
         <span className="horizSpacer"></span>
         <button onClick={e => dispatch({
           command: CMD_SET_CNR_RESPOND,
@@ -628,7 +662,7 @@ const Controls = (props) => {
         <button onClick={e => dispatch({
           command: CMD_RESET,
           target: e.currentTarget
-        })}disabled={started}>Reset</button>
+        })}disabled={started}>Reset All Settings</button>
       </div>
     </div>
   );
