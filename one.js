@@ -126,7 +126,7 @@ let notesActual = [], notesMinimum = [], noteNamesInKey = [], noteNamesChromatic
 let analyser = null;
 let audioContext = null;
 let rafID = null;
-let bufferScale = 2; // 2 seems best for lowish E1-B1 notes when played on E string
+let bufferScale = 2; // 2 seems best for lowish E1-B1 notes when played on B string
 // when E1-B1 notes played on B string the fundamental disapears quickly and the E2-B2
 // overtones are more very soon louder!
 let bufferAnalyserData = new Float32Array(2048 * bufferScale); // must be multiples of 2048
@@ -568,10 +568,12 @@ function findLoopNoteFreq() {
   const loopFreq = notesActual[loopNoteIndex].f;
   return loopFreq;
 }
+
 function stopCurrentNotePad() {
   const loopFreq = findLoopNoteFreq();
   stopOscsFromRoot(loopFreq); // just in case it was running already
 }
+
 function oneLoopPadStart() {
   const loopFreq = findLoopNoteFreq();
   stopOscsFromRoot(loopFreq); // just in case it was running already
@@ -580,6 +582,7 @@ function oneLoopPadStart() {
     oneLoopPadStop(loopFreq);
   }, rcs.loopPlayTime);
 }
+
 function oneLoopPadStop(loopFreq) {
   stopOscsFromRoot(loopFreq);
   loopsCtr--; forceReactUpdateTrick();
@@ -595,13 +598,11 @@ function oneLoopPadStop(loopFreq) {
   }, rcs.loopPauseTime);
 }
 
-
 function startPad(freq) {
   if (rcs.tone)
     pad(freq);
   else
     return;
-
   const stoTime = (rcs.chordOrArpg === 'chord' ? 0 :  rcs.loopPlayTime);
   let chordTones = 1; // 1 is to account for the root tone
   if (rcs.tone3) chordTones++;
@@ -659,7 +660,6 @@ function stopOscsFromRoot(freq) {
 
 function stopPadAll() {
   for (const [freq, value] of Object.entries(padOscillatorsAtFreq)) {
-    //console.log(`${freq} ${value}`);
     stopOscsFromRoot(freq);
   }
 }

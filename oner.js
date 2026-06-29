@@ -149,6 +149,8 @@ function controlsReducer(state, action) {
     case (CMD_SET_RM_STOPONNOTE):
       startAnimation();
       return {...state,
+        hide: false,
+        beep: false,
         detectedShowKonvaNote: true,
         detectedTrigger: true,
         runMode: RUN_MODE_STOPONNOTE

@@ -436,9 +436,12 @@ function renderNoteAndMeasures(note) {
     tooltip.hide();
   });
   newNoteK.on('mouseup', function (evt) {
-    stopIt();
-    loopNote = evt.currentTarget.getAttr(ATTR_NOTE);
-    oneLoopPadStart();
+    const note = evt.currentTarget.getAttr(ATTR_NOTE);
+    stopPadAll();
+    startPad(note.f);
+    setTimeout(() => {
+      stopOscsFromRoot(note.f);
+    }, rcs.loopPlayTime);
   });
 
   newNoteK.setAttr(ATTR_NOTE, note);
