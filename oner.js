@@ -3,13 +3,14 @@
 const { StrictMode } = React
 const { createRoot } = ReactDOM;
 
-const CMD_SET_RM_CNR = 'SET_RM_CNR';
-const CMD_SET_CNR_RESPOND = 'SET_CNR_RESPOND';
-const CMD_SET_CNR_PLAYNOTE = 'SET_CNR_PLAYNOTE';
-const CMD_RESET = 'RESET';
-const CMD_STOP = 'STOP';
-const CMD_SET_RM_STOPONNOTE = 'SET_RM_OLDSTYLE';
+const CMD_SET_START_DETECTING = 'START_DETECTING';
 const CMD_SET_RM_CONTINUOUS = 'SET_RM_CONTINUOUS';
+const CMD_SET_RM_STOPONNOTE = 'SET_RM_OLDSTYLE';
+const CMD_SET_RM_CNR = 'SET_RM_CNR';
+const CMD_SET_RM_DRONE = 'SET_RM_DRONE';
+const CMD_STOP = 'STOP';
+const CMD_SET_CNR_RESPOND = 'SET_CNR_RESPOND';
+const CMD_RESET = 'RESET';
 
 const CMD_SET_INPUT = 'LISTENING';
 const CMD_SET_OCTEQ = 'OCT_EQ';
@@ -29,7 +30,6 @@ const CMD_SET_LOOP_PLAY_TIME = 'LOOP_PLAY_TIME';
 const CMD_SET_LOOP_PAUSE_TIME = 'LOOP_PAUSE_TIME';
 const CMD_SET_RANGE_LOW = 'RANGE_LOW';
 const CMD_SET_RANGE_HIGH = 'RANGE_HIGH';
-const CMD_SET_START_DETECTING = 'START_DETECTING';
 const CMD_SET_SHOW_DETECTED_NOTEK = 'SHOW_DETECTED_NOTEK';
 const CMD_SET_DETECTED_TRIGGER = 'DETECTED_TRIGGER';
 const CMD_SET_DETECTED_TRIGGER_THRESHOLD = 'DETECTED_TRIGGER_THRESHOLD';
@@ -134,7 +134,13 @@ function controlsReducer(state, action) {
   switch(action.command) {
     case (CMD_SET_START_DETECTING):
       startDetecting();
-      return state;
+      return {...state,
+        hide: false,
+        beep: false,
+        detectedShowKonvaNote: true,
+        detectedTrigger: false,
+        runMode: false
+      };
     case (CMD_SET_RM_CONTINUOUS):
       clearNotes();
       startAnimation();
@@ -165,13 +171,19 @@ function controlsReducer(state, action) {
         detectedTrigger: false,
         runMode: RUN_MODE_CNR
       };
-    case (CMD_SET_CNR_PLAYNOTE):
-      playNoteAtTarget();
-      return state;
     case (CMD_SET_CNR_RESPOND):
       respond();
       return {...state, 
         detectedTrigger: true
+      };
+    case (CMD_SET_RM_DRONE):
+      startAnimation();
+      return {...state,
+        hide: false,
+        beep: true,
+        detectedShowKonvaNote: false,
+        detectedTrigger: false,
+        runMode: RUN_MODE_DRONE
       };
     case (CMD_RESET):
       newState = {...defaultState};
@@ -588,33 +600,38 @@ const Controls = (props) => {
 
       <div>
         <span className="horizSpacer"></span>
-        <input id="loops" type="range" value={rcs.loops} min="1" max="100" onChange={e =>
-          dispatch({
-            command: CMD_SET_LOOPS,
-            loops: parseInt(e.currentTarget.value,10),
-          })
-        }/>
+        <input id="loops" type="range" value={rcs.loops} min="1" max="100"
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_LOOPS,
+              loops: parseInt(e.currentTarget.value,10),
+            })}
+          disabled={rcs.runMode === RUN_MODE_DRONE}
+        />
         <label htmlFor="loops"> {rcs.loops > 1 && loopsCtr > 0 ? loopsCtr + '/' : ''}{rcs.loops} Loops</label>
 
         <span className="horizSpacer"></span>
 
-        <input id="loopPlayTime" type="range" value={rcs.loopPlayTime} min="50" max="2000"onChange={e =>
-          dispatch({
-            command: CMD_SET_LOOP_PLAY_TIME,
-            loopPlayTime: parseInt(e.currentTarget.value,10),
-          })
-        } step="10"/>
+        <input id="loopPlayTime" type="range" value={rcs.loopPlayTime} min="50" max="1000"
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_LOOP_PLAY_TIME,
+              loopPlayTime: parseInt(e.currentTarget.value,10),
+            })}
+          disabled={rcs.runMode === RUN_MODE_DRONE}
+          step="10"/>
         <label htmlFor="loopPlayTime"> {rcs.loopPlayTime} Loop play time</label>
 
         <span className="horizSpacer"></span>
 
-        <input id="loopPauseTime" type="range" value={rcs.loopPauseTime} min="0" max="8000"
-        onChange={e =>
-          dispatch({
-            command: CMD_SET_LOOP_PAUSE_TIME,
-            loopPauseTime: parseInt(e.currentTarget.value,10),
-          })
-        } step="10"/>
+        <input id="loopPauseTime" type="range" value={rcs.loopPauseTime} min="0" max="500"
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_LOOP_PAUSE_TIME,
+              loopPauseTime: parseInt(e.currentTarget.value,10),
+            })}
+          disabled={rcs.runMode === RUN_MODE_DRONE}
+          step="10"/>
         <label htmlFor="loopPauseTime"> {rcs.loopPauseTime} Pause between loops</label>
       </div>
 
@@ -625,31 +642,6 @@ const Controls = (props) => {
           command: CMD_SET_START_DETECTING,
           target: e.currentTarget
         })} disabled={started}>Start</button>
-        <span className="horizSpacer"></span>
-        <button onClick={e => dispatch({
-          command: CMD_SET_RM_CONTINUOUS,
-          target: e.currentTarget
-        })} disabled={!started}>Continuous</button>
-        <span className="horizSpacer"></span>
-        <button onClick={e => dispatch({
-          command: CMD_SET_RM_STOPONNOTE,
-          target: e.currentTarget
-        })} disabled={!started}>Stop On Note</button>
-        <span className="horizSpacer"></span>
-        <button onClick={e => dispatch({
-          command: CMD_SET_RM_CNR,
-          target: e.currentTarget
-        })} disabled={!started} >Call & Respond</button>
-        <span className="horizSpacer"></span>
-        <button onClick={e => dispatch({
-          command: CMD_SET_CNR_PLAYNOTE,
-          target: e.currentTarget
-        })} disabled={!started || rcs.runMode !== RUN_MODE_CNR || !rcs.tone}>Play Note</button>
-        <span className="horizSpacer"></span>
-        <button onClick={e => dispatch({
-          command: CMD_SET_CNR_RESPOND,
-          target: e.currentTarget
-        })} disabled={!started || rcs.runMode !== RUN_MODE_CNR}>Respond</button>
         <span className="horizSpacer"></span>
         <button onClick={e => dispatch({
           command: CMD_STOP,
@@ -665,6 +657,64 @@ const Controls = (props) => {
           command: CMD_RESET,
           target: e.currentTarget
         })}disabled={started}>Reset All Settings</button>
+      </div>
+
+      <div className="vertSpacer"></div>
+
+      <div>
+        <button onClick={e => dispatch({
+            command: CMD_SET_RM_CONTINUOUS,
+            target: e.currentTarget
+          })}
+          disabled={!started} title="Play and release note at the target, continuously"
+        > Continuous Play</button>
+        <span className="horizSpacer"></span>
+        <span style={{display: 'inline-grid', gridTemplateColumns: 'auto auto auto auto auto'}}>
+          <button onClick={e => dispatch({
+              command: CMD_SET_RM_STOPONNOTE,
+              target: e.currentTarget
+            })}
+            disabled={!started} title="Play note at target and wait for detection to release"
+          > Play and Detect </button>
+          <span className="horizSpacer"></span>
+          <button onClick={e => dispatch({
+              command: CMD_SET_RM_CNR,
+              target: e.currentTarget
+            })}
+            disabled={!started} title="Play note at target and wait for user to start detection"
+          > Play and Wait to Detect </button>
+          <span className="horizSpacer"></span>
+          <button onClick={e => dispatch({
+            command: CMD_SET_RM_DRONE,
+            target: e.currentTarget
+          })} disabled={!started}>Drone</button>
+
+
+          <button onClick={() => playNoteAtTarget()}
+            disabled={ !started || !rcs.tone || rcs.runMode !== RUN_MODE_STOPONNOTE}>
+            Replay Target Note</button>
+          <span className="horizSpacer"></span>
+          <button onClick={e => dispatch({
+            command: CMD_SET_CNR_RESPOND,
+            target: e.currentTarget
+          })} disabled={!started || rcs.runMode !== RUN_MODE_CNR}>Detect Target Note</button>
+          <span className="horizSpacer"></span>
+          <button onClick={() => releaseNoteAtTarget() } disabled={!started || rcs.runMode !== RUN_MODE_DRONE}>Next Note</button>
+
+          <button onClick={() => releaseNoteAtTarget() } disabled={!started || rcs.runMode !== RUN_MODE_STOPONNOTE}>Next Note</button>
+          <span className="horizSpacer"></span>
+          <button onClick={() => playNoteAtTarget()}
+            disabled={ !started || !rcs.tone || rcs.runMode !== RUN_MODE_CNR}>
+            Replay Target Note</button>
+          <span className="horizSpacer"></span>
+          <span className="horizSpacer"></span>
+
+          <span className="horizSpacer"></span>
+          <span className="horizSpacer"></span>
+          <button onClick={() => releaseNoteAtTarget() } disabled={!started || rcs.runMode !== RUN_MODE_CNR}>Next Note</button>
+          <span className="horizSpacer"></span>
+          <span className="horizSpacer"></span>
+        </span>
       </div>
     </div>
   );

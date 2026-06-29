@@ -73,10 +73,11 @@ const FUNC_RANDO = 'RANDO';
 const FUNC_ASC = 'ASC';
 const FUNC_DESC = 'DESC';
 
-const RUN_MODE_CNR = 'C&R';
-const RUN_MODE_STOPONNOTE = 'OLDSTYLE';
 const RUN_MODE_STARTED = 'STARTED';
 const RUN_MODE_CONTINUOUS = 'CONTINUOUS';
+const RUN_MODE_STOPONNOTE = 'OLDSTYLE';
+const RUN_MODE_CNR = 'C&R';
+const RUN_MODE_DRONE = 'DRONE';
 
 // keep defaultState to one level of nested objects so the localStorage of ui settings will work
 const defaultState = {
@@ -539,14 +540,17 @@ function pad(freq) {
   square.connect(squareGain);
   square.start(t);
 
-  //console.log('pad ' + freq);
   padOscillatorsAtFreq[freq] = [saw1, saw2, square];
 }
 
 function startLooping(note) {
   loopNote = note;
-  loopsCtr = rcs.loops; forceReactUpdateTrick();
-  oneLoopPadStart();
+  if (rcs.runMode === RUN_MODE_DRONE) {
+    oneLoopPadStart(8*1000);
+  } else {
+    loopsCtr = rcs.loops; forceReactUpdateTrick();
+    oneLoopPadStart();
+  }
 }
 
 function stopLoopingTimers() {
@@ -574,13 +578,13 @@ function stopCurrentNotePad() {
   stopOscsFromRoot(loopFreq); // just in case it was running already
 }
 
-function oneLoopPadStart() {
+function oneLoopPadStart(playTime = rcs.loopPlayTime) {
   const loopFreq = findLoopNoteFreq();
   stopOscsFromRoot(loopFreq); // just in case it was running already
   startPad(loopFreq);
   timeoutRoot = setTimeout(() => {
     oneLoopPadStop(loopFreq);
-  }, rcs.loopPlayTime);
+  }, playTime);
 }
 
 function oneLoopPadStop(loopFreq) {

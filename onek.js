@@ -889,7 +889,6 @@ const animateRoll = new Konva.Animation(function (frame) {
     for (let i=0; i<c.length; i++) {
       child = c[i];
       childX = newX + child.getAttr('x')
-      //console.log(childX + ' ' + noteDestroyX);
       if (childX > 0 && childX <= noteDestroyX) {
         child.destroy();
       }
