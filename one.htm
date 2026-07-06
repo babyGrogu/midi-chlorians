@@ -25,8 +25,8 @@
     <script src="oner.js" type="text/babel"></script>
 
     <style>
-      #note { font-size: 46px; }
-      #detected { font-size: 32px; }
+      #note { font-size: 46px; color: red }
+      #detected { font-size: 23px; }
       #lastPlayed { padding: 16px 0 0 0; font-size: 23px; }
       .vertSpacer { padding: 8px 0 0 0; }
       .horizSpacer { padding: 0 16px 0 0; }
@@ -55,14 +55,14 @@
   <body>
     <section id="layout">
       <realtime>
-        <div><span id="hertz">--</span>Hz</div>
+        <div><span id="hertz"></span>Hz</div>
         <div id="detune">
-          <span id="detune_amt">--</span>
+          <span id="detune_amt"></span>
           <span id="flat">cents &#9837;</span>
           <span id="sharp">cents &#9839;</span>
         </div>
-        <div id="note">--</div>
-        <div id="detected">--</div>
+        <div id="detected"></div>
+        <div id="note"></div>
         <div id="lastPlayed">&nbsp;</div>
       </realtime>
       <controls id="reactRoot"></controls>

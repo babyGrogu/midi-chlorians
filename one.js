@@ -317,9 +317,9 @@ function updatePitch(/* timestamp */) {
 
   //animationFramesCtr++;
  	if (noteFreq == -1) {
-	 	  hertzElem.innerText = "--";
-		  noteElem.innerText = "--";
-		  detuneAmount.innerText = "--";
+	 	  hertzElem.innerText = "";
+		  noteElem.innerText = "";
+		  detuneAmount.innerText = "";
  	} else {
 	 	hertzElem.innerText = Math.round( noteFreq ) ;
 
@@ -342,8 +342,8 @@ function updatePitch(/* timestamp */) {
         if (rcs.hide) {
 	 	      //const note = noteFromPitch( noteFreq );
       		//noteElem.innerHTML = NOTES[note%12];
-          noteElem.innerHTML = ' ';
-          detectedEle.innerHTML = ' ';
+          noteElem.innerHTML = '';
+          detectedEle.innerHTML = '';
         } else  {
           noteElem.innerHTML = getLabelForNote(noteDetected.n) + ' ' + noteDetected.l;
         }
@@ -546,7 +546,8 @@ function pad(freq) {
 function startLooping(note) {
   loopNote = note;
   if (rcs.runMode === RUN_MODE_DRONE) {
-    oneLoopPadStart(8*1000);
+    const totalDroneTime = rcs.loops * rcs.loopPlayTime + (rcs.loops-1) * rcs.loopPauseTime;
+    oneLoopPadStart(totalDroneTime);
   } else {
     loopsCtr = rcs.loops; forceReactUpdateTrick();
     oneLoopPadStart();
@@ -776,6 +777,14 @@ function respond() {
   detectedEle.innerHTML = 'Play something!';
 }
 
+function nextNoteCnR() {
+  if (rcs.runMode === RUN_MODE_CNR) {
+    detectedThresholdCnt = 0;
+    detectedEle.innerHTML = '';
+    dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: false});
+  }
+}
+
 function setUpKey(state) {
   noteNamesInKey = calculateNoteNamesInKey(state.key, false);
   noteNamesChromaticForKey =  calculateNoteNamesInKey(state.key, true);
@@ -810,7 +819,11 @@ function startKeyBoardListening() {
       if (evt.key === ' ') {
         playNoteAtTarget();
       } else if (evt.key === 'n') {
-        releaseNoteAtTarget();
+        if (rcs.runMode === RUN_MODE_CNR) {
+          nextNoteCnR();
+        } else {
+          releaseNoteAtTarget() 
+        }
       } else if (evt.key === 's') {
         showNoteAtTarget();
       } else if (evt.key === 'r') {

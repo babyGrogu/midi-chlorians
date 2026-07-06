@@ -600,7 +600,7 @@ const Controls = (props) => {
 
       <div>
         <span className="horizSpacer"></span>
-        <input id="loops" type="range" value={rcs.loops} min="1" max="100"
+        <input id="loops" type="range" value={rcs.loops} min="1" max="16"
           onChange={e =>
             dispatch({
               command: CMD_SET_LOOPS,
@@ -612,7 +612,7 @@ const Controls = (props) => {
 
         <span className="horizSpacer"></span>
 
-        <input id="loopPlayTime" type="range" value={rcs.loopPlayTime} min="50" max="1000"
+        <input id="loopPlayTime" type="range" value={rcs.loopPlayTime} min="32" max="4096"
           onChange={e =>
             dispatch({
               command: CMD_SET_LOOP_PLAY_TIME,
@@ -624,7 +624,7 @@ const Controls = (props) => {
 
         <span className="horizSpacer"></span>
 
-        <input id="loopPauseTime" type="range" value={rcs.loopPauseTime} min="0" max="500"
+        <input id="loopPauseTime" type="range" value={rcs.loopPauseTime} min="0" max="1024"
           onChange={e =>
             dispatch({
               command: CMD_SET_LOOP_PAUSE_TIME,
@@ -701,7 +701,7 @@ const Controls = (props) => {
           <span className="horizSpacer"></span>
           <button onClick={() => releaseNoteAtTarget() } disabled={!started || rcs.runMode !== RUN_MODE_DRONE}>Next Note</button>
 
-          <button onClick={() => releaseNoteAtTarget() } disabled={!started || rcs.runMode !== RUN_MODE_STOPONNOTE}>Next Note</button>
+          <button onClick={() => nextNoteCnR() } disabled={!started || rcs.runMode !== RUN_MODE_STOPONNOTE}>Next Note</button>
           <span className="horizSpacer"></span>
           <button onClick={() => playNoteAtTarget()}
             disabled={ !started || !rcs.tone || rcs.runMode !== RUN_MODE_CNR}>
