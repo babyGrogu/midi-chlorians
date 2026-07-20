@@ -916,6 +916,10 @@ const animateRoll = new Konva.Animation(function (frame) {
     if (konvaNoteX <= targetX + noteRadiusX + 5) {
       animateRoll.stop();
       startLooping(konvaNote.getAttr(ATTR_NOTE));
+      if (rcs.runMode === RUN_MODE_DRONE) {
+        droneTimer.cancel();
+        droneTimer.run();
+      }
     }
   }
 

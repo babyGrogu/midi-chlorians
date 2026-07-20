@@ -79,6 +79,7 @@ const RUN_MODE_STOPONNOTE = 'OLDSTYLE';
 const RUN_MODE_CNR = 'C&R';
 const RUN_MODE_DRONE = 'DRONE';
 
+const minPauseTime = 200;
 // keep defaultState to one level of nested objects so the localStorage of ui settings will work
 const defaultState = {
   input: NONE,
@@ -98,7 +99,7 @@ const defaultState = {
   chordOrArpg: 'chord', // the selected tones 3,5,7 as a chord or as an arpegio
   loops: 1,
   loopPlayTime: 800,
-  loopPauseTime: 0,
+  loopPauseTime: minPauseTime,
   detectedTriggerThreshold: 23,
   detectedTrigger: false,
   detectedShowKonvaNote: false,
@@ -126,11 +127,14 @@ let notesActual = [], notesMinimum = [], noteNamesInKey = [], noteNamesChromatic
 // webaudio variables
 let analyser = null;
 let audioContext = null;
+let noiseBuffer;
 let rafID = null;
 let bufferScale = 2; // 2 seems best for lowish E1-B1 notes when played on B string
 // when E1-B1 notes played on B string the fundamental disapears quickly and the E2-B2
 // overtones are more very soon louder!
 let bufferAnalyserData = new Float32Array(2048 * bufferScale); // must be multiples of 2048
+
+const loopPlayTimeDroneScale = 10;
 
 
 // onload handler has to be at top
@@ -146,7 +150,7 @@ window.onload = function () {
   createBassClefKeySignatures();
 
   const localStoreData = JSON.parse(window.localStorage.getItem(LOCAL_STORAGE_KEY));
-  initialState = {...defaultState, ...localStoreData};
+  initialState = {...defaultState, ...localStoreData, runMode: false};
   setUpKey(initialState);
   setNoteFunction(initialState);
 
@@ -220,6 +224,16 @@ async function startAudioListening() {
 
       await gotStream(stream);
     }
+
+    // create noise buffer for drum stick sound
+    noiseBuffer =
+      audioContext.createBuffer(1, audioContext.sampleRate, audioContext.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+
+    for (let i = 0; i < data.length; i++) {
+        data[i] = Math.random() * 2 - 1;
+    }
+
   } catch (err) {
     console.error(`${err.name}: ${err.message}`);
     started = false; forceReactUpdateTrick();
@@ -329,7 +343,7 @@ function updatePitch(/* timestamp */) {
         && noteFreq < notesMinimum[trigger+1].f
         && ! rcs.detectedTrigger) {
       respondTriggered();
-      beepBeep();
+      tic();
     }
 
     // if the frequency seen is in our UI set range limits...
@@ -361,7 +375,7 @@ function updatePitch(/* timestamp */) {
             && noteDetected.n === firstUnplayedNote.n
             && (rcs.octEq ? true : noteDetected.l === firstUnplayedNote.l)) {
 
-            if (rcs.detectedTrigger) detectedThresholdCnt++;
+            if (rcs.detectedTrigger && !padPlaying) {/*console.log('pp=' +padPlaying);*/ detectedThresholdCnt++;}
             if (rcs.detectedTrigger && detectedThresholdCnt >= rcs.detectedTriggerThreshold) {
               detectedThresholdCnt = 0;
               releaseNoteAtTarget();
@@ -372,9 +386,7 @@ function updatePitch(/* timestamp */) {
           }
 
           if (rcs.detectedTrigger) {
-            const thresh =
-              (rcs.detectedTrigger) ? ' Threshold: ' + rcs.detectedTriggerThreshold : '';
-            detectedEle.innerHTML = 'Detected: ' + detectedThresholdCnt + thresh;
+            updateDetectedEle();
           }
           else if (rcs.runMode === RUN_MODE_CNR) {
             detectedEle.innerHTML = 'Press Respond when ready';
@@ -405,6 +417,11 @@ function updatePitch(/* timestamp */) {
   //  " run this function (updatePitch) right before the next screen repaint"
   // this syncs up that function with the screen refresh rate
   rafID = window.requestAnimationFrame( updatePitch );
+}
+function updateDetectedEle() {
+  const thresh =
+    (rcs.detectedTrigger) ? ' Threshold: ' + rcs.detectedTriggerThreshold : '';
+  detectedEle.innerHTML = 'Detected: ' + detectedThresholdCnt + thresh;
 }
 
 //--------------------------------------------------------------
@@ -489,8 +506,11 @@ function createBassClefKeySignatures() {
   makeOrder(8, 15, 3, accidentalSigRange);
 }
 
+let padPlaying = false;
 function pad(freq) {
   stopOscsFromRoot(freq);
+  padPlaying = true;
+  //console.log('pp = true');
 
   let t = 0;
   var lnf = Math.log(freq);
@@ -508,7 +528,7 @@ function pad(freq) {
   filter.type = "lowpass"; // this is the default
   filter.Q.value = 0.7; // creates a gentle roll off at frequence.value
   filter.connect(audioContext.destination);
-  filter.frequency.value = 402;
+  filter.frequency.value = 208; // roll off at G#3, if i add treble clef then change this
   filter.detune.setValueAtTime(756, t);
   filter.detune.setTargetAtTime(0, peakTime, 2 * decayScale);
 
@@ -543,11 +563,15 @@ function pad(freq) {
   padOscillatorsAtFreq[freq] = [saw1, saw2, square];
 }
 
+function getDronePlayTime() {
+    const playTime = rcs.runMode === RUN_MODE_DRONE ?  loopPlayTimeDroneScale * rcs.loopPlayTime : rcs.loopPlayTime;
+    return playTime;
+}
+
 function startLooping(note) {
   loopNote = note;
   if (rcs.runMode === RUN_MODE_DRONE) {
-    const totalDroneTime = rcs.loops * rcs.loopPlayTime + (rcs.loops-1) * rcs.loopPauseTime;
-    oneLoopPadStart(totalDroneTime);
+    oneLoopPadStart(getDronePlayTime());
   } else {
     loopsCtr = rcs.loops; forceReactUpdateTrick();
     oneLoopPadStart();
@@ -590,6 +614,11 @@ function oneLoopPadStart(playTime = rcs.loopPlayTime) {
 
 function oneLoopPadStop(loopFreq) {
   stopOscsFromRoot(loopFreq);
+  setTimeout(() => {
+    // does it take a bit of time to stop the oscillators?
+    padPlaying = false;
+    //console.log('pp = false ' + minPauseTime);
+  }, minPauseTime);
   loopsCtr--; forceReactUpdateTrick();
   timeoutPadPauseUntilLoopRestart = setTimeout(() => {
     // if loopsCtr is above 0 then restart the loop
@@ -676,17 +705,81 @@ function beep() {
 
   const beep = audioContext.createOscillator();
   beep.type = "sine";
-  beep.frequency.value = 300;
+  beep.frequency.value = 420;
   beep.connect(beepGain);
   const now = audioContext.currentTime;
   beep.start(now);
-  beep.stop(now + 0.204);
+  beep.stop(now + 0.143);
 }
 function beepBeep() {
   beep();
   setTimeout(() => {
     beep();
   }, 300);
+}
+
+function woodBlock(accent = false) {
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    osc.type = "triangle";
+    osc.frequency.value = accent ? 1800 : 1200;
+
+    osc.connect(gain);
+    gain.connect(audioContext.destination);
+
+    const t = audioContext.currentTime;
+
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(0.4, t + 0.001);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.035);
+
+    osc.start(t);
+    osc.stop(t + 0.04);
+}
+
+function tic() {
+    const source = audioContext.createBufferSource();
+    source.buffer = noiseBuffer;
+
+    const filter = audioContext.createBiquadFilter();
+    filter.type = "highpass";
+    filter.frequency.value = 2000;
+
+    const gain = audioContext.createGain();
+
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(audioContext.destination);
+
+    const t = audioContext.currentTime;
+
+    gain.gain.setValueAtTime(0.35, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.02);
+
+    source.start(t);
+    source.stop(t + 0.04);
+}
+
+function kick() {
+    const osc = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    osc.type = "sine";
+
+    const t = audioContext.currentTime;
+
+    osc.frequency.setValueAtTime(140, t);
+    osc.frequency.exponentialRampToValueAtTime(45, t + 0.08);
+
+    gain.gain.setValueAtTime(0.8, t);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+
+    osc.connect(gain);
+    gain.connect(audioContext.destination);
+
+    osc.start(t);
+    osc.stop(t + 0.16);
 }
 
 // among noteNamesInKey not for all chromatic notes
@@ -748,10 +841,12 @@ function movingToNextNote() {
   //detectedEle.innerHTML = '';
 }
 
-function playNoteAtTarget() {
+function playNoteAtTarget(playTime) {
+  detectedThresholdCnt = 0;
+  updateDetectedEle();
   stopPadAll();
   stopLoopingTimers();
-  oneLoopPadStart();
+  oneLoopPadStart(playTime);
 }
 
 function stopIt() {
@@ -777,12 +872,13 @@ function respond() {
   detectedEle.innerHTML = 'Play something!';
 }
 
-function nextNoteCnR() {
+function nextNote() {
   if (rcs.runMode === RUN_MODE_CNR) {
     detectedThresholdCnt = 0;
     detectedEle.innerHTML = '';
     dispatchRef({command: CMD_SET_DETECTED_TRIGGER, detectedTrigger: false});
   }
+  releaseNoteAtTarget() 
 }
 
 function setUpKey(state) {
@@ -819,11 +915,7 @@ function startKeyBoardListening() {
       if (evt.key === ' ') {
         playNoteAtTarget();
       } else if (evt.key === 'n') {
-        if (rcs.runMode === RUN_MODE_CNR) {
-          nextNoteCnR();
-        } else {
-          releaseNoteAtTarget() 
-        }
+        nextNote();
       } else if (evt.key === 's') {
         showNoteAtTarget();
       } else if (evt.key === 'r') {

@@ -279,6 +279,43 @@ function controlsReducer(state, action) {
   return state;
 }
 
+function getLoopPlayTime() {
+  return rcs.runMode === RUN_MODE_DRONE ? loopPlayTimeDroneScale * rcs.loopPlayTime : rcs.loopPlayTime;
+}
+
+class VisibleDroneTimer {
+  constructor(callback) {
+    this.cb = callback;
+    this.ctr = 0;
+    this.duration = 0;
+    this.startTime = 0;
+    this.siId = null;
+    this.stoId = null;
+  }
+  elapsed() { return Math.floor(performance.now() - this.startTime); }
+  remaining() { return Math.floor(Math.max(0, this.duration - this.elapsed())); }
+  cancel() { clearInterval(this.siId); clearTimeout(this.stoId); }
+  run() {
+    this.cancel();
+    this.ctr = 0;
+    this.startTime = performance.now();
+    this.duration = getLoopPlayTime();
+    this.siId = this._createSI();
+    this.stoId = this._createSTO();
+  }
+  _createSI() {
+    const itvl = 100;
+    return setInterval(() => {
+      //console.log('itvl ' + itvl + ' ' + this.ctr++);
+      forceReactUpdateTrick();
+    }, itvl);
+  }
+  _createSTO() {
+    return setTimeout(() => {clearInterval(this.siId); this.cb}, this.duration);
+  }
+}
+
+let droneTimer = new VisibleDroneTimer(() => console.log('vdt cb()'));
 
 let forceReactUpdateTrick = null;
 const Controls = (props) => {
@@ -600,6 +637,18 @@ const Controls = (props) => {
 
       <div>
         <span className="horizSpacer"></span>
+
+        <input id="loopPlayTime" type="range" value={rcs.loopPlayTime} min="100" max="2000"
+          onChange={e =>
+            dispatch({
+              command: CMD_SET_LOOP_PLAY_TIME,
+              loopPlayTime: parseInt(e.currentTarget.value,10),
+            })}
+          step="100"/>
+        <label htmlFor="loopPlayTime"> {getLoopPlayTime()} Loop play time</label>
+
+        <span className="horizSpacer"></span>
+
         <input id="loops" type="range" value={rcs.loops} min="1" max="16"
           onChange={e =>
             dispatch({
@@ -612,26 +661,14 @@ const Controls = (props) => {
 
         <span className="horizSpacer"></span>
 
-        <input id="loopPlayTime" type="range" value={rcs.loopPlayTime} min="32" max="4096"
-          onChange={e =>
-            dispatch({
-              command: CMD_SET_LOOP_PLAY_TIME,
-              loopPlayTime: parseInt(e.currentTarget.value,10),
-            })}
-          disabled={rcs.runMode === RUN_MODE_DRONE}
-          step="10"/>
-        <label htmlFor="loopPlayTime"> {rcs.loopPlayTime} Loop play time</label>
-
-        <span className="horizSpacer"></span>
-
-        <input id="loopPauseTime" type="range" value={rcs.loopPauseTime} min="0" max="1024"
+        <input id="loopPauseTime" type="range" value={rcs.loopPauseTime} min={minPauseTime} max="1000"
           onChange={e =>
             dispatch({
               command: CMD_SET_LOOP_PAUSE_TIME,
               loopPauseTime: parseInt(e.currentTarget.value,10),
             })}
-          disabled={rcs.runMode === RUN_MODE_DRONE}
-          step="10"/>
+          disabled={rcs.loops === 1 || rcs.runMode === RUN_MODE_DRONE}
+          step="100"/>
         <label htmlFor="loopPauseTime"> {rcs.loopPauseTime} Pause between loops</label>
       </div>
 
@@ -670,6 +707,7 @@ const Controls = (props) => {
         > Continuous Play</button>
         <span className="horizSpacer"></span>
         <span style={{display: 'inline-grid', gridTemplateColumns: 'auto auto auto auto auto'}}>
+          {/* first row of buttons */}
           <button onClick={e => dispatch({
               command: CMD_SET_RM_STOPONNOTE,
               target: e.currentTarget
@@ -684,12 +722,15 @@ const Controls = (props) => {
             disabled={!started} title="Play note at target and wait for user to start detection"
           > Play and Wait to Detect </button>
           <span className="horizSpacer"></span>
-          <button onClick={e => dispatch({
-            command: CMD_SET_RM_DRONE,
-            target: e.currentTarget
-          })} disabled={!started}>Drone</button>
+          <button onClick={e => {
+            dispatch({
+              command: CMD_SET_RM_DRONE,
+              target: e.currentTarget
+            });
+          }} disabled={!started}>Drone</button>
 
 
+          {/* second row of buttons */}
           <button onClick={() => playNoteAtTarget()}
             disabled={ !started || !rcs.tone || rcs.runMode !== RUN_MODE_STOPONNOTE}>
             Replay Target Note</button>
@@ -699,21 +740,25 @@ const Controls = (props) => {
             target: e.currentTarget
           })} disabled={!started || rcs.runMode !== RUN_MODE_CNR}>Detect Target Note</button>
           <span className="horizSpacer"></span>
-          <button onClick={() => releaseNoteAtTarget() } disabled={!started || rcs.runMode !== RUN_MODE_DRONE}>Next Note</button>
+          <button onClick={() => releaseNoteAtTarget()} disabled={!started || rcs.runMode !== RUN_MODE_DRONE}>Next Note Manual{/*Drone*/}</button>
 
-          <button onClick={() => nextNoteCnR() } disabled={!started || rcs.runMode !== RUN_MODE_STOPONNOTE}>Next Note</button>
+          {/* third row of buttons */}
+          <button onClick={() => releaseNoteAtTarget() } disabled={!started || rcs.runMode !== RUN_MODE_STOPONNOTE}>Next Note{/*P&D*/}</button>
           <span className="horizSpacer"></span>
           <button onClick={() => playNoteAtTarget()}
             disabled={ !started || !rcs.tone || rcs.runMode !== RUN_MODE_CNR}>
             Replay Target Note</button>
           <span className="horizSpacer"></span>
-          <span className="horizSpacer"></span>
+          <button onClick={() => {playNoteAtTarget(getDronePlayTime());droneTimer.cancel();droneTimer.run()}}
+            disabled={ !started || !rcs.tone || rcs.runMode !== RUN_MODE_DRONE}>
+            Replay Target Note</button>
 
+          {/* fourth row of buttons */}
           <span className="horizSpacer"></span>
           <span className="horizSpacer"></span>
-          <button onClick={() => releaseNoteAtTarget() } disabled={!started || rcs.runMode !== RUN_MODE_CNR}>Next Note</button>
+          <button onClick={() => nextNote()} disabled={!started || rcs.runMode !== RUN_MODE_CNR}>Next Note{/*P&WtD*/}</button>
           <span className="horizSpacer"></span>
-          <span className="horizSpacer"></span>
+          <span className={rcs.runMode===RUN_MODE_DRONE?'':'horizSpacer'}>{rcs.runMode===RUN_MODE_DRONE? droneTimer.remaining()  + '/' + getLoopPlayTime() : ''}</span>
         </span>
       </div>
     </div>
