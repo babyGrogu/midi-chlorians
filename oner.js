@@ -36,6 +36,8 @@ const CMD_SET_DETECTED_TRIGGER_THRESHOLD = 'DETECTED_TRIGGER_THRESHOLD';
 const CMD_SET_BEEP = 'BEEP';
 const CMD_SET_FUNC = 'FUNC';
 const CMD_SET_SKIP = 'SKIP';
+const CMD_SET_DRONE_AUTONN = 'DRONEAUTONN';
+
 let rcs = {}; // reducer controlled state
 let dispatchRef = null; // handle to dispatcher
 
@@ -274,6 +276,8 @@ function controlsReducer(state, action) {
         state.skip = {...state.skip, ...{[action.skipNote]: action.skipChecked}};
       }
       return {...state};
+    case (CMD_SET_DRONE_AUTONN):
+      return {...state, droneAutoNN: action.droneAutoNN};
   }
   console.warn('no switch command was found or done and no state was changed');
   return state;
@@ -740,7 +744,17 @@ const Controls = (props) => {
             target: e.currentTarget
           })} disabled={!started || rcs.runMode !== RUN_MODE_CNR}>Detect Target Note</button>
           <span className="horizSpacer"></span>
-          <button onClick={() => releaseNoteAtTarget()} disabled={!started || rcs.runMode !== RUN_MODE_DRONE}>Next Note Manual{/*Drone*/}</button>
+          <span className="horizSpacer">
+            <input type="checkbox" id="droneAutoNN" checked={rcs.droneAutoNN} disabled={!rcs.runMode===RUN_MODE_DRONE} onChange={e => {
+              if (!rcs.droneAutoNN) releaseNoteAtTarget();
+              dispatch({
+                command: CMD_SET_DRONE_AUTONN,
+                droneAutoNN: e.currentTarget.checked,
+                target: e.currentTarget,
+              })}
+            }/> Next Note Auto 
+            {rcs.runMode===RUN_MODE_DRONE? droneTimer.remaining()  + '/' + getLoopPlayTime() : ''}
+          </span>
 
           {/* third row of buttons */}
           <button onClick={() => releaseNoteAtTarget() } disabled={!started || rcs.runMode !== RUN_MODE_STOPONNOTE}>Next Note{/*P&D*/}</button>
@@ -749,16 +763,16 @@ const Controls = (props) => {
             disabled={ !started || !rcs.tone || rcs.runMode !== RUN_MODE_CNR}>
             Replay Target Note</button>
           <span className="horizSpacer"></span>
-          <button onClick={() => {playNoteAtTarget(getDronePlayTime());droneTimer.cancel();droneTimer.run()}}
-            disabled={ !started || !rcs.tone || rcs.runMode !== RUN_MODE_DRONE}>
-            Replay Target Note</button>
+          <button onClick={() => releaseNoteAtTarget()} disabled={!started || rcs.runMode !== RUN_MODE_DRONE || rcs.droneAutoNN}>Next Note{/*Drone*/}</button>
 
           {/* fourth row of buttons */}
           <span className="horizSpacer"></span>
           <span className="horizSpacer"></span>
           <button onClick={() => nextNote()} disabled={!started || rcs.runMode !== RUN_MODE_CNR}>Next Note{/*P&WtD*/}</button>
           <span className="horizSpacer"></span>
-          <span className={rcs.runMode===RUN_MODE_DRONE?'':'horizSpacer'}>{rcs.runMode===RUN_MODE_DRONE? droneTimer.remaining()  + '/' + getLoopPlayTime() : ''}</span>
+          <button onClick={() => {playNoteAtTarget(getDronePlayTime());droneTimer.cancel();droneTimer.run()}}
+            disabled={ !started || !rcs.tone || rcs.runMode !== RUN_MODE_DRONE || rcs.droneAutoNN }>
+            Replay Target Note</button>
         </span>
       </div>
     </div>

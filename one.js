@@ -73,7 +73,6 @@ const FUNC_RANDO = 'RANDO';
 const FUNC_ASC = 'ASC';
 const FUNC_DESC = 'DESC';
 
-const RUN_MODE_STARTED = 'STARTED';
 const RUN_MODE_CONTINUOUS = 'CONTINUOUS';
 const RUN_MODE_STOPONNOTE = 'OLDSTYLE';
 const RUN_MODE_CNR = 'C&R';
@@ -107,6 +106,7 @@ const defaultState = {
   func: FUNC_RANDO,
   skip: {},
   runMode: false,
+  droneAutoNN: false,
 };
 let started = false;
 let initialState;
@@ -625,7 +625,8 @@ function oneLoopPadStop(loopFreq) {
     if (loopsCtr > 0) {
       oneLoopPadStart();
     }
-    else if (rcs.runMode === RUN_MODE_CONTINUOUS) {
+    else if (rcs.runMode === RUN_MODE_CONTINUOUS
+      || (rcs.runMode === RUN_MODE_DRONE && rcs.droneAutoNN)) {
       // this lets the roll play by itself at the end of looping
       releaseNoteAtTarget();
     }
